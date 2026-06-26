@@ -86,6 +86,7 @@ export default function BuilderPage() {
   const [loadingPrev,  setLoadingPrev]  = useState(false);
   const [step,         setStep]         = useState(1);
   const [saving,       setSaving]       = useState(false);
+  const [saveMsg,      setSaveMsg]      = useState<{ ok: boolean; text: string } | null>(null);
 
   // ── Color sync ──────────────────────────────────────────────────────────────
   function applyColor(hex: string) {
@@ -168,9 +169,11 @@ export default function BuilderPage() {
 
   async function handleSave() {
     setSaving(true);
+    setSaveMsg(null);
     const name   = chartName || `${selectedDb!.name} - ${yField}`;
     const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
     const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+    let notionOk = false;
 
     if (editId) {
       const chart    = existing.find(c => c.id === editId);
@@ -179,12 +182,16 @@ export default function BuilderPage() {
       localStorage.setItem("notion_charts", JSON.stringify(updated));
 
       if (notionId) {
-        // Await so Notion is up-to-date before embed can be refreshed
-        await fetch(`/api/charts?id=${notionId}`, {
-          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
-        }).catch(() => {});
+        try {
+          const r = await fetch(`/api/charts?id=${notionId}`, {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
+          });
+          const rj = await r.json();
+          notionOk = rj.ok === true;
+          if (!notionOk) console.error("[builder] PUT failed:", rj);
+        } catch (e) { console.error("[builder] PUT error:", e); }
       } else {
-        // No Notion page yet — create one and back-fill notionId so embed URL becomes stable
+        // No Notion page yet — create one and back-fill notionId
         try {
           const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
           const rj = await r.json();
@@ -192,14 +199,14 @@ export default function BuilderPage() {
             const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
             const idx = charts.findIndex(c => c.id === editId);
             if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
-          }
-        } catch {}
+            notionOk = true;
+          } else { console.error("[builder] POST failed:", rj); }
+        } catch (e) { console.error("[builder] POST error:", e); }
       }
     } else {
       const newId    = crypto.randomUUID();
       const newChart: ChartConfig = { id: newId, ...config };
       localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
-      // Save to Notion and back-fill notionId for stable embed URL
       try {
         const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
         const rj = await r.json();
@@ -207,10 +214,18 @@ export default function BuilderPage() {
           const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
           const idx = charts.findIndex(c => c.id === newId);
           if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
-        }
-      } catch {}
+          notionOk = true;
+        } else { console.error("[builder] POST failed:", rj); }
+      } catch (e) { console.error("[builder] POST error:", e); }
     }
-    router.push("/");
+    setSaving(false);
+    if (notionOk) {
+      setSaveMsg({ ok: true, text: "Saved to Notion ✓ — embed URL will auto-sync" });
+      setTimeout(() => router.push("/"), 1200);
+    } else {
+      setSaveMsg({ ok: false, text: "Saved locally only — Notion sync failed. Re-copy the embed URL." });
+      setTimeout(() => router.push("/"), 2500);
+    }
   }
 
   // ── Shared input style ──────────────────────────────────────────────────────
@@ -390,6 +405,16 @@ export default function BuilderPage() {
                 }}>
                 {saving ? "Saving..." : editId ? "Update Chart" : "Save Chart"}
               </button>
+              {saveMsg && (
+                <p style={{
+                  fontSize: 12, padding: "8px 10px", borderRadius: 6, margin: 0,
+                  background: saveMsg.ok ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                  color: saveMsg.ok ? "#10b981" : "#f87171",
+                  border: `1px solid ${saveMsg.ok ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                }}>
+                  {saveMsg.text}
+                </p>
+              )}
             </div>
           )}
 

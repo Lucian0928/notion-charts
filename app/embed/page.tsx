@@ -11,6 +11,7 @@ interface Props {
     yField?: string;
     color?: string;
     title?: string;
+    debug?: string;
   }>;
 }
 
@@ -265,28 +266,35 @@ const TOGGLE_SCRIPT = `
 
 export default async function EmbedPage({ searchParams }: Props) {
   const params = await searchParams;
-  const { id } = params;
+  const { id, debug } = params;
+  const isDebug = debug === "1";
 
   let databaseId = params.databaseId || "";
   let xField = params.xField || "";
   let yField = params.yField || "";
-  let color = params.color || "#f59e0b";
+  let color = params.color || "#6366f1";
+
+  let notionFetchStatus = "skipped";
+  let notionRaw = "";
 
   // If ?id= is provided, fetch latest config from Notion (stable embed URL)
   if (id) {
     try {
       const token = process.env.NOTION_CHARTS_TOKEN;
-      if (token) {
+      if (!token) { notionFetchStatus = "no-token"; }
+      else {
         const notion = getNotionClient(token);
         const page = await notion.pages.retrieve({ page_id: id }) as any;
-        const raw = page.properties?.Config?.rich_text?.[0]?.plain_text || "{}";
-        const cfg = JSON.parse(raw);
+        notionRaw = page.properties?.Config?.rich_text?.[0]?.plain_text || "{}";
+        const cfg = JSON.parse(notionRaw);
+        notionFetchStatus = "ok";
         if (cfg.databaseId) databaseId = cfg.databaseId;
         if (cfg.xField) xField = cfg.xField;
         if (cfg.yField) yField = cfg.yField;
         if (cfg.color) color = cfg.color;
       }
-    } catch (e) {
+    } catch (e: any) {
+      notionFetchStatus = "error: " + e.message;
       console.error("[embed] Failed to fetch config by id:", e);
     }
   }
@@ -348,6 +356,22 @@ export default async function EmbedPage({ searchParams }: Props) {
         </div>
 
         {!errorMsg && <div className="footer">{data.length} entries</div>}
+
+        {isDebug && (
+          <div style={{
+            position:"absolute", bottom:0, left:0, right:0,
+            background:"rgba(0,0,0,0.85)", color:"#0f0",
+            fontFamily:"monospace", fontSize:11, padding:"6px 10px",
+            lineHeight:1.6, zIndex:9999, pointerEvents:"none",
+          }}>
+            <div>id param: {id || "(none)"}</div>
+            <div>notion fetch: {notionFetchStatus}</div>
+            <div>notion raw: {notionRaw || "(empty)"}</div>
+            <div>color used: {color}</div>
+            <div>databaseId: {databaseId || "(none)"}</div>
+            <div>error: {errorMsg || "(none)"}</div>
+          </div>
+        )}
       </div>
       <script dangerouslySetInnerHTML={{ __html: TOGGLE_SCRIPT }} />
     </>
