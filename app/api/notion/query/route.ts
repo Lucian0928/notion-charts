@@ -33,7 +33,7 @@ function extractValue(prop: any): string | number | null {
 
 export async function GET(req: NextRequest) {
   const token =
-    req.headers.get("x-notion-token") || process.env.NOTION_TOKEN;
+    req.headers.get("x-notion-token") || process.env.NOTION_CHARTS_TOKEN;
   const databaseId = req.nextUrl.searchParams.get("databaseId");
   const xField = req.nextUrl.searchParams.get("xField");
   const yField = req.nextUrl.searchParams.get("yField");

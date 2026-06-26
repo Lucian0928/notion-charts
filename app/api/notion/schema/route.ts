@@ -3,7 +3,7 @@ import { getNotionClient } from "@/lib/notion";
 
 export async function GET(req: NextRequest) {
   const token =
-    req.headers.get("x-notion-token") || process.env.NOTION_TOKEN;
+    req.headers.get("x-notion-token") || process.env.NOTION_CHARTS_TOKEN;
   const databaseId = req.nextUrl.searchParams.get("databaseId");
 
   if (!token) {

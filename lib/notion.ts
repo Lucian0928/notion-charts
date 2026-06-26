@@ -5,5 +5,5 @@ export function getNotionClient(token: string) {
 }
 
 export function getServerToken(): string | undefined {
-  return process.env.NOTION_TOKEN;
+  return process.env.NOTION_CHARTS_TOKEN;
 }
