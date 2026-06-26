@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChartPreview } from "@/components/ChartPreview";
+import { renderSvgChart } from "@/lib/chartSvg";
 import { ChartConfig, ChartType, NotionDatabase, NotionProperty } from "@/lib/types";
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
@@ -375,12 +375,21 @@ export default function BuilderPage() {
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0, borderRadius: 16,
-          background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
-          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 16 }}>
+          background: "#191919", border: "1px solid rgba(255,255,255,0.07)",
+          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
+          /* CSS vars for the SVG to consume */
+          ["--bg" as any]: "#191919",
+          ["--label" as any]: "#6b7280",
+          ["--grid" as any]: "rgba(255,255,255,0.08)",
+        }}>
           {previewData.length > 0 ? (
-            <div style={{ width: "100%", height: "100%" }}>
-              <ChartPreview data={previewData} chartType={chartType} color={color} xField={xField} yField={yField} height="100%" />
-            </div>
+            <svg
+              viewBox="0 0 800 320"
+              preserveAspectRatio="xMidYMid meet"
+              style={{ width: "100%", height: "100%", display: "block" }}
+              xmlns="http://www.w3.org/2000/svg"
+              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color) }}
+            />
           ) : (
             <div style={{ textAlign: "center", color: "var(--muted, #6b7280)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
