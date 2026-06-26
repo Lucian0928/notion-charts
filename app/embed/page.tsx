@@ -244,9 +244,20 @@ const TOGGLE_SCRIPT = `
   document.addEventListener('mouseup',    pointerEnd);
   document.addEventListener('touchend',   pointerEnd);
 
-  // Refresh button
+  // Refresh button — spin + gray feedback, then reload
   var refreshBtn = document.getElementById('refreshBtn');
-  if (refreshBtn) refreshBtn.addEventListener('click', function() { window.location.reload(); });
+  if (refreshBtn) refreshBtn.addEventListener('click', function() {
+    var btn = this;
+    var svg = btn.querySelector('svg');
+    btn.style.background = 'rgba(120,120,128,0.55)';
+    btn.style.color = 'rgba(180,180,180,0.9)';
+    btn.style.boxShadow = 'none';
+    if (svg) {
+      svg.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+      svg.style.transform = 'rotate(360deg)';
+    }
+    setTimeout(function() { window.location.reload(); }, 480);
+  });
 })();
 `;
 
