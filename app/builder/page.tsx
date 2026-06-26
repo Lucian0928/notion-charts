@@ -76,9 +76,8 @@ export default function BuilderPage() {
     }
   }
 
-  function handleSave() {
-    const config: ChartConfig = {
-      id: crypto.randomUUID(),
+  async function handleSave() {
+    const config = {
       name: chartName || `${selectedDb!.name} - ${yField}`,
       databaseId: selectedDb!.id,
       databaseName: selectedDb!.name,
@@ -88,8 +87,11 @@ export default function BuilderPage() {
       color,
       createdAt: Date.now(),
     };
-    const existing = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-    localStorage.setItem("notion_charts", JSON.stringify([...existing, config]));
+    await fetch("/api/charts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
     router.push("/");
   }
 

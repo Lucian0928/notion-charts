@@ -13,13 +13,44 @@ export default function DashboardPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = localStorage.getItem("notion_token");
-    if (!t) { router.push("/setup"); return; }
-    setToken(t);
+    async function init() {
+      const t = localStorage.getItem("notion_token");
+      if (!t) { router.push("/setup"); return; }
+      setToken(t);
 
-    const saved = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-    setCharts(saved);
-    saved.forEach((c: ChartConfig) => fetchChartData(c, t));
+      // Load charts from server (Notion-backed)
+      const res = await fetch("/api/charts");
+      const json = await res.json();
+      let loaded: ChartConfig[] = json.charts || [];
+
+      // One-time migration from localStorage
+      if (loaded.length === 0 && json.storage !== "unavailable") {
+        const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+        if (local.length > 0) {
+          const migrated: ChartConfig[] = [];
+          for (const c of local) {
+            const r = await fetch("/api/charts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(c),
+            });
+            const rj = await r.json();
+            if (rj.id) migrated.push({ ...c, id: rj.id });
+          }
+          loaded = migrated;
+          localStorage.removeItem("notion_charts");
+        }
+      }
+
+      // Fallback: if API storage unavailable, read localStorage
+      if (json.storage === "unavailable") {
+        loaded = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+      }
+
+      setCharts(loaded);
+      loaded.forEach((c: ChartConfig) => fetchChartData(c, t));
+    }
+    init();
   }, []);
 
   async function fetchChartData(config: ChartConfig, t: string) {
@@ -33,10 +64,9 @@ export default function DashboardPage() {
     } catch {}
   }
 
-  function deleteChart(id: string) {
-    const updated = charts.filter((c) => c.id !== id);
-    setCharts(updated);
-    localStorage.setItem("notion_charts", JSON.stringify(updated));
+  async function deleteChart(id: string) {
+    setCharts((prev) => prev.filter((c) => c.id !== id));
+    await fetch(`/api/charts?id=${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
   function getEmbedUrl(config: ChartConfig): string {
