@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChartConfig } from "@/lib/types";
-import { ChartPreview } from "@/components/ChartPreview";
+import { renderSvgChart } from "@/lib/chartSvg";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -154,13 +154,20 @@ export default function DashboardPage() {
               </div>
 
               {chartData[config.id] ? (
-                <ChartPreview
-                  data={chartData[config.id]}
-                  chartType={config.chartType}
-                  color={config.color}
-                  xField={config.xField}
-                  yField={config.yField}
-                />
+                <div style={{
+                  borderRadius: 12, overflow: "hidden", background: "#191919",
+                  ["--bg" as any]: "#191919",
+                  ["--label" as any]: "#6b7280",
+                  ["--grid" as any]: "rgba(255,255,255,0.08)",
+                }}>
+                  <svg
+                    viewBox="0 0 800 320"
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{ width: "100%", display: "block" }}
+                    xmlns="http://www.w3.org/2000/svg"
+                    dangerouslySetInnerHTML={{ __html: renderSvgChart(chartData[config.id], config.color) }}
+                  />
+                </div>
               ) : (
                 <div
                   className="flex items-center justify-center h-48 rounded-xl text-sm"
