@@ -24,9 +24,15 @@ export default function DashboardPage() {
         const res = await fetch("/api/charts");
         const json = await res.json();
         if (json.storage !== "unavailable" && Array.isArray(json.charts) && json.charts.length > 0) {
-          setCharts(json.charts);
-          localStorage.setItem("notion_charts", JSON.stringify(json.charts));
-          json.charts.forEach((c: ChartConfig) => fetchChartData(c, t));
+          // Merge Notion charts with localStorage to preserve notionId and local UUIDs
+          const merged: ChartConfig[] = json.charts.map((nc: ChartConfig) => {
+            const match = local.find(l => l.notionId === nc.id || l.id === nc.id);
+            if (match) return { ...nc, id: match.id, notionId: nc.id };
+            return { ...nc, notionId: nc.id };
+          });
+          setCharts(merged);
+          localStorage.setItem("notion_charts", JSON.stringify(merged));
+          merged.forEach((c: ChartConfig) => fetchChartData(c, t));
           return;
         }
       } catch {}
@@ -57,6 +63,8 @@ export default function DashboardPage() {
 
   function getEmbedUrl(config: ChartConfig): string {
     const base = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+    // If chart has a Notion page ID, use stable /embed?id= URL (auto-syncs on edit)
+    if (config.notionId) return `${base}/embed?id=${config.notionId}`;
     const params = new URLSearchParams({
       databaseId: config.databaseId,
       xField: config.xField,

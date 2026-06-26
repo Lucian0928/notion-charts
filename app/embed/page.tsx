@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getNotionClient } from "@/lib/notion";
 import { renderSvgChart } from "@/lib/chartSvg";
 
