@@ -66,8 +66,8 @@ function formatDateLabel(dateStr: string): string {
 
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const W = 800;
-  const H = 400;
-  const pad = { top: 24, right: 20, bottom: 80, left: 48 };
+  const H = 320;
+  const pad = { top: 20, right: 20, bottom: 70, left: 48 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -196,7 +196,7 @@ export default async function EmbedPage({ searchParams }: Props) {
           {title ? <div className="title">{title}</div> : <span/>}
           <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
         </div>
-        <svg className="chart-svg" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"
+        <svg className="chart-svg" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet"
           xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
         {!errorMsg && <div className="footer">{data.length} entries</div>}
