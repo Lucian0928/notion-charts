@@ -9,10 +9,9 @@ export default function DashboardPage() {
   const router = useRouter();
   const [charts, setCharts] = useState<ChartConfig[]>([]);
   const [chartData, setChartData] = useState<Record<string, { x: any; y: any }[]>>({});
-  const [token, setToken] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
-  async function fetchChartData(config: ChartConfig, t: string) { // eslint-disable-line
+  async function fetchChartData(config: ChartConfig, t: string) {
     try {
       const res = await fetch(
         `/api/notion/query?databaseId=${config.databaseId}&xField=${encodeURIComponent(config.xField)}&yField=${encodeURIComponent(config.yField)}`,
@@ -27,7 +26,6 @@ export default function DashboardPage() {
     async function init() {
       const t = localStorage.getItem("notion_token");
       if (!t) { router.push("/setup"); return; }
-      setToken(t);
 
       const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
@@ -52,7 +50,7 @@ export default function DashboardPage() {
       local.forEach((c: ChartConfig) => fetchChartData(c, t));
     }
     init();
-  }, []);
+  }, [router]);
 
   async function deleteChart(id: string) {
     const updated = charts.filter((c) => c.id !== id);

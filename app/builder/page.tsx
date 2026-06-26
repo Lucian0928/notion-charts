@@ -127,7 +127,7 @@ export default function BuilderPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) { // eslint-disable-line
+  async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) {
     const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
     const chart = local.find((c) => c.id === id);
     if (!chart) return;

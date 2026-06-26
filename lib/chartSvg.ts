@@ -5,7 +5,12 @@ export function formatDateLabel(dateStr: string): string {
   return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
 }
 
-export function renderSvgChart(data: { x: any; y: any }[], color: string): string {
+export function renderSvgChart(rawData: { x: any; y: any }[], color: string): string {
+  // Always sort ascending by X so oldest→newest left→right
+  const data = [...rawData].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+
   const W = 800;
   const H = 320;
   const pad = { top: 14, right: 12, bottom: 52, left: 34 };
