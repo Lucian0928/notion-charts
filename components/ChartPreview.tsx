@@ -12,7 +12,7 @@ interface Props {
   color: string;
   xField: string;
   yField: string;
-  height?: number | string;
+  height?: number | `${number}%`;
 }
 
 const TOOLTIP_STYLE = {
