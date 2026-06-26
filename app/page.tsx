@@ -40,7 +40,7 @@ export default function DashboardPage() {
   }
 
   function getEmbedUrl(config: ChartConfig): string {
-    const base = window.location.origin;
+    const base = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const params = new URLSearchParams({
       databaseId: config.databaseId,
       xField: config.xField,
