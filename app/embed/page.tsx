@@ -355,21 +355,29 @@ export default async function EmbedPage({ searchParams }: Props) {
           </button>
         </div>
 
-        {!errorMsg && <div className="footer">{data.length} entries</div>}
+        {!errorMsg && (
+          <div className="footer" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {id && (
+              <span style={{
+                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                background: color, border: "1px solid rgba(255,255,255,0.3)", flexShrink: 0,
+              }} title={`color: ${color} · source: ${notionFetchStatus}`} />
+            )}
+            {data.length} entries
+          </div>
+        )}
 
         {isDebug && (
           <div style={{
-            position:"absolute", bottom:0, left:0, right:0,
-            background:"rgba(0,0,0,0.85)", color:"#0f0",
-            fontFamily:"monospace", fontSize:11, padding:"6px 10px",
-            lineHeight:1.6, zIndex:9999, pointerEvents:"none",
+            position:"fixed", top:0, left:0, right:0,
+            background:"rgba(0,0,0,0.92)", color:"#0f0",
+            fontFamily:"monospace", fontSize:12, padding:"8px 12px",
+            lineHeight:1.8, zIndex:99999,
           }}>
-            <div>id param: {id || "(none)"}</div>
-            <div>notion fetch: {notionFetchStatus}</div>
-            <div>notion raw: {notionRaw || "(empty)"}</div>
-            <div>color used: {color}</div>
-            <div>databaseId: {databaseId || "(none)"}</div>
-            <div>error: {errorMsg || "(none)"}</div>
+            <b>id:</b> {id || "(none)"} &nbsp;|&nbsp;
+            <b>notion:</b> {notionFetchStatus} &nbsp;|&nbsp;
+            <b>color:</b> {color} &nbsp;|&nbsp;
+            <b>db:</b> {databaseId ? databaseId.slice(0,8)+"…" : "(none)"}
           </div>
         )}
       </div>

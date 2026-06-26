@@ -170,10 +170,11 @@ export default function BuilderPage() {
   async function handleSave() {
     setSaving(true);
     setSaveMsg(null);
+    let notionOk = false;
+    try {
     const name   = chartName || `${selectedDb!.name} - ${yField}`;
     const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
     const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-    let notionOk = false;
 
     if (editId) {
       const chart    = existing.find(c => c.id === editId);
@@ -218,14 +219,16 @@ export default function BuilderPage() {
         } else { console.error("[builder] POST failed:", rj); }
       } catch (e) { console.error("[builder] POST error:", e); }
     }
-    setSaving(false);
-    if (notionOk) {
-      setSaveMsg({ ok: true, text: "Saved to Notion ✓ — embed URL will auto-sync" });
-      setTimeout(() => router.push("/"), 1200);
-    } else {
-      setSaveMsg({ ok: false, text: "Saved locally only — Notion sync failed. Re-copy the embed URL." });
-      setTimeout(() => router.push("/"), 2500);
+    } catch (e: any) {
+      console.error("[builder] handleSave error:", e);
     }
+    setSaving(false);
+    setSaveMsg(
+      notionOk
+        ? { ok: true,  text: "✓ Saved to Notion — embed auto-syncs" }
+        : { ok: false, text: "✗ Notion sync failed — locally saved only" }
+    );
+    setTimeout(() => router.push("/"), 3000);
   }
 
   // ── Shared input style ──────────────────────────────────────────────────────
