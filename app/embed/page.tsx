@@ -136,7 +136,7 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
         <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
       </linearGradient>
     </defs>
-    <rect x="0" y="0" width="${W}" height="${H}" fill="#111008" rx="0"/>
+    <rect x="0" y="0" width="${W}" height="${H}" fill="#191919" rx="0"/>
     <g transform="translate(${pad.left},${pad.top})">
       ${yLabels}
       <path d="${areaPath}" fill="url(#${gradId})"/>
@@ -164,7 +164,7 @@ export default async function EmbedPage({ searchParams }: Props) {
     : renderSvgChart(data, color);
 
   return (
-    <div style={{ background: "#0d0d0d", padding: "12px 16px 8px", minHeight: "100vh" }}>
+    <div style={{ background: "#191919", padding: "12px 16px 8px", minHeight: "100vh" }}>
       {title && (
         <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 500, marginBottom: "8px", fontFamily: "sans-serif" }}>
           {title}
