@@ -135,20 +135,11 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
     return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
-  const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
-
   return `
-    <defs>
-      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.65"/>
-        <stop offset="70%" stop-color="${color}" stop-opacity="0.18"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0.03"/>
-      </linearGradient>
-    </defs>
     <g transform="translate(${pad.left},${pad.top})">
       ${yGridLines}
       ${xGridLines}
-      <path d="${areaPath}" fill="url(#${gradId})"/>
+      <path d="${areaPath}" fill="${color}" fill-opacity="0.18"/>
       <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
       ${dots}
       ${xLabelTexts}
