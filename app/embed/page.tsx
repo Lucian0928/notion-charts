@@ -69,8 +69,12 @@ const CSS = `
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); transition: background 0.3s; }
   .wrap { height: 100vh; position: relative; overflow: hidden; background: var(--bg); transition: background 0.3s; }
-  .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .footer { position: absolute; bottom: 6px; right: 12px; font-size: 10px; color: var(--label); font-family: sans-serif; opacity: 0.5; pointer-events: none; }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+  .footer { position: absolute; bottom: 6px; right: 12px; font-size: 10px; color: var(--label); font-family: sans-serif; opacity: 0.5; pointer-events: none; animation: slideUp 0.5s 0.08s cubic-bezier(0.22,1,0.36,1) both; }
 
   /* Liquid Glass pill */
   .lg-pill {
@@ -248,19 +252,37 @@ const TOGGLE_SCRIPT = `
   document.addEventListener('mouseup',    pointerEnd);
   document.addEventListener('touchend',   pointerEnd);
 
-  // Refresh button — spin + gray feedback, then reload
+  // Refresh button — spin, slide chart down, then reload → slides back up on load
   var refreshBtn = document.getElementById('refreshBtn');
   if (refreshBtn) refreshBtn.addEventListener('click', function() {
     var btn = this;
     var svg = btn.querySelector('svg');
+    var chartSvg = document.querySelector('.chart-svg');
+    var footer   = document.querySelector('.footer');
+
+    // Button feedback
     btn.style.background = 'rgba(120,120,128,0.55)';
     btn.style.color = 'rgba(180,180,180,0.9)';
     btn.style.boxShadow = 'none';
     if (svg) {
-      svg.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+      svg.style.transition = 'transform 0.5s cubic-bezier(0.4,0,0.2,1)';
       svg.style.transform = 'rotate(360deg)';
     }
-    setTimeout(function() { window.location.reload(); }, 480);
+
+    // Slide chart down before reload
+    if (chartSvg) {
+      chartSvg.style.animation = 'none';
+      chartSvg.style.transition = 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,1,1)';
+      chartSvg.style.opacity = '0';
+      chartSvg.style.transform = 'translateY(22px)';
+    }
+    if (footer) {
+      footer.style.animation = 'none';
+      footer.style.transition = 'opacity 0.2s ease';
+      footer.style.opacity = '0';
+    }
+
+    setTimeout(function() { window.location.reload(); }, 400);
   });
 })();
 `;
