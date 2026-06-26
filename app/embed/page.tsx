@@ -42,24 +42,26 @@ async function fetchData(databaseId: string, xField: string, yField: string) {
       database_id: databaseId,
       start_cursor: cursor,
       page_size: 100,
-      sorts: [{ timestamp: "created_time", direction: "ascending" }],
     });
     pages.push(...res.results);
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
   } while (cursor);
 
-  return pages
+  const raw = pages
     .map((page: any) => ({
       x: extractValue(page.properties[xField]),
       y: extractValue(page.properties[yField]),
     }))
     .filter((d) => d.x !== null && d.y !== null);
+
+  // Sort by X value ascending (oldest → newest)
+  return raw.sort((a, b) => String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0);
 }
 
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
-  const W = 760;
-  const H = 220;
-  const pad = { top: 16, right: 16, bottom: 36, left: 44 };
+  const W = 800;
+  const H = 260;
+  const pad = { top: 20, right: 20, bottom: 40, left: 48 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -69,29 +71,71 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
   const range = maxY - minY || 1;
+  const yPad = range * 0.1;
+  const yMin = Math.max(0, minY - yPad);
+  const yMax = maxY + yPad;
+  const yRange = yMax - yMin;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
-  const sy = (v: number) => iH - ((v - minY) / range) * iH;
+  const sy = (v: number) => iH - ((v - yMin) / yRange) * iH;
 
-  const polyline = data.map((d, i) => `${sx(i)},${sy(Number(d.y))}`).join(" ");
-  const dots = data.map((d, i) => `<circle cx="${sx(i)}" cy="${sy(Number(d.y))}" r="2.5" fill="${color}" opacity="0.9"/>`).join("");
+  // Line path
+  const linePath = data
+    .map((d, i) => `${i === 0 ? "M" : "L"}${sx(i).toFixed(1)},${sy(Number(d.y)).toFixed(1)}`)
+    .join(" ");
 
-  const step = Math.max(1, Math.floor(data.length / 6));
+  // Area path (line + close to bottom)
+  const first = `${sx(0).toFixed(1)},${sy(Number(data[0].y)).toFixed(1)}`;
+  const last = `${sx(data.length - 1).toFixed(1)},${sy(Number(data[data.length - 1].y)).toFixed(1)}`;
+  const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
+
+  // Dots (only if not too many data points)
+  const showDots = data.length <= 150;
+  const dots = showDots
+    ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="3" fill="${color}"/>`).join("")
+    : "";
+
+  // X axis labels (~7 evenly spaced)
+  const labelCount = 7;
+  const step = Math.max(1, Math.floor(data.length / (labelCount - 1)));
   const xLabels = data
     .map((d, i) => ({ d, i }))
     .filter(({ i }) => i % step === 0 || i === data.length - 1)
-    .map(({ d, i }) => `<text x="${sx(i)}" y="${iH + 26}" fill="#64748b" font-size="10" text-anchor="middle">${String(d.x).slice(0, 10)}</text>`)
+    .map(({ d, i }) => {
+      const label = String(d.x).slice(0, 10);
+      const x = sx(i);
+      const anchor = i === 0 ? "start" : i === data.length - 1 ? "end" : "middle";
+      return `<text x="${x.toFixed(1)}" y="${iH + 28}" fill="#64748b" font-size="10" text-anchor="${anchor}" font-family="monospace">${label}</text>`;
+    })
     .join("");
 
-  const yLabels = [0, 0.25, 0.5, 0.75, 1].map((t) => {
-    const v = minY + range * t;
+  // Y axis grid lines and labels (6 ticks)
+  const yTicks = 6;
+  const yLabels = Array.from({ length: yTicks }, (_, i) => {
+    const v = yMin + (yRange / (yTicks - 1)) * i;
     const y = sy(v);
     return `
-      <line x1="0" y1="${y}" x2="${iW}" y2="${y}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-      <text x="-6" y="${y + 4}" fill="#64748b" font-size="10" text-anchor="end">${v.toFixed(2)}</text>`;
+      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+      <text x="-8" y="${(y + 4).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end" font-family="monospace">${v.toFixed(2)}</text>`;
   }).join("");
 
-  return `<g transform="translate(${pad.left},${pad.top})">${yLabels}<polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}${xLabels}</g>`;
+  // Unique gradient ID to avoid conflicts
+  const gradId = `grad_${color.replace("#", "")}`;
+
+  return `
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <g transform="translate(${pad.left},${pad.top})">
+      ${yLabels}
+      <path d="${areaPath}" fill="url(#${gradId})"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>
+      ${dots}
+      ${xLabels}
+    </g>`;
 }
 
 export default async function EmbedPage({ searchParams }: Props) {
@@ -112,17 +156,21 @@ export default async function EmbedPage({ searchParams }: Props) {
     : renderSvgChart(data, color);
 
   return (
-    <div style={{ background: "#0a0a0f", padding: "16px", minHeight: "100vh" }}>
-      {title && <div style={{ color: "white", fontSize: "13px", fontWeight: 500, marginBottom: "10px" }}>{title}</div>}
+    <div style={{ background: "#0d0d0d", padding: "12px 16px 8px", minHeight: "100vh" }}>
+      {title && (
+        <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 500, marginBottom: "8px", fontFamily: "sans-serif" }}>
+          {title}
+        </div>
+      )}
       <svg
-        viewBox="0 0 760 280"
+        viewBox={`0 0 800 260`}
         xmlns="http://www.w3.org/2000/svg"
-        style={{ width: "100%", height: "auto" }}
+        style={{ width: "100%", height: "auto", display: "block" }}
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
       {!errorMsg && (
-        <div style={{ color: "#64748b", fontSize: "11px", textAlign: "right", marginTop: "6px" }}>
-          {data.length} 筆資料
+        <div style={{ color: "#475569", fontSize: "10px", textAlign: "right", marginTop: "4px", fontFamily: "sans-serif" }}>
+          {data.length} entries
         </div>
       )}
     </div>
