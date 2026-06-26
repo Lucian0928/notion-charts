@@ -58,81 +58,89 @@ async function fetchData(databaseId: string, xField: string, yField: string) {
   return raw.sort((a, b) => String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0);
 }
 
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr.slice(0, 10);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const yr = String(d.getFullYear()).slice(2);
+  return `${months[d.getMonth()]} '${yr}`;
+}
+
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const W = 800;
-  const H = 260;
-  const pad = { top: 20, right: 20, bottom: 40, left: 48 };
+  const H = 280;
+  const pad = { top: 24, right: 16, bottom: 44, left: 44 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
   if (data.length === 0) return `<text fill="#64748b" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const ys = data.map((d) => Number(d.y));
-  const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-  const range = maxY - minY || 1;
-  const yPad = range * 0.1;
-  const yMin = Math.max(0, minY - yPad);
-  const yMax = maxY + yPad;
+
+  // Y axis: always start at 0, end at next clean 0.1 above max
+  const yMin = 0;
+  const yMax = Math.ceil(maxY * 10) / 10 + 0.1;
   const yRange = yMax - yMin;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - ((v - yMin) / yRange) * iH;
 
-  // Line path
   const linePath = data
     .map((d, i) => `${i === 0 ? "M" : "L"}${sx(i).toFixed(1)},${sy(Number(d.y)).toFixed(1)}`)
     .join(" ");
 
-  // Area path (line + close to bottom)
-  const first = `${sx(0).toFixed(1)},${sy(Number(data[0].y)).toFixed(1)}`;
-  const last = `${sx(data.length - 1).toFixed(1)},${sy(Number(data[data.length - 1].y)).toFixed(1)}`;
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
 
-  // Dots (only if not too many data points)
-  const showDots = data.length <= 150;
+  const showDots = data.length <= 200;
   const dots = showDots
-    ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="3" fill="${color}"/>`).join("")
+    ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="2.5" fill="${color}"/>`).join("")
     : "";
 
-  // X axis labels (~7 evenly spaced)
-  const labelCount = 7;
-  const step = Math.max(1, Math.floor(data.length / (labelCount - 1)));
-  const xLabels = data
-    .map((d, i) => ({ d, i }))
-    .filter(({ i }) => i % step === 0 || i === data.length - 1)
-    .map(({ d, i }) => {
-      const label = String(d.x).slice(0, 10);
-      const x = sx(i);
-      const anchor = i === 0 ? "start" : i === data.length - 1 ? "end" : "middle";
-      return `<text x="${x.toFixed(1)}" y="${iH + 28}" fill="#64748b" font-size="10" text-anchor="${anchor}" font-family="monospace">${label}</text>`;
-    })
-    .join("");
+  // X labels: ~8 evenly spaced, formatted as "Jan '25"
+  const labelCount = 8;
+  const step = Math.max(1, Math.floor((data.length - 1) / (labelCount - 1)));
+  const indices = new Set<number>();
+  for (let k = 0; k < labelCount; k++) indices.add(Math.min(k * step, data.length - 1));
+  indices.add(data.length - 1);
 
-  // Y axis grid lines and labels (6 ticks)
-  const yTicks = 6;
-  const yLabels = Array.from({ length: yTicks }, (_, i) => {
-    const v = yMin + (yRange / (yTicks - 1)) * i;
-    const y = sy(v);
-    return `
-      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
-      <text x="-8" y="${(y + 4).toFixed(1)}" fill="#64748b" font-size="10" text-anchor="end" font-family="monospace">${v.toFixed(2)}</text>`;
+  const xLabels = [...indices].map((i) => {
+    const x = sx(i);
+    const anchor = i === 0 ? "start" : i === data.length - 1 ? "end" : "middle";
+    const label = formatDateLabel(String(data[i].x));
+    return `<text x="${x.toFixed(1)}" y="${iH + 30}" fill="#6b7280" font-size="10.5" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  // Unique gradient ID to avoid conflicts
-  const gradId = `grad_${color.replace("#", "")}`;
+  // Y ticks: 0, 0.1, 0.2 ... up to yMax
+  const tickStep = 0.1;
+  const yTickValues: number[] = [];
+  for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) {
+    yTickValues.push(v);
+  }
+
+  const yLabels = yTickValues.map((v) => {
+    const y = sy(v);
+    if (y < -2 || y > iH + 2) return "";
+    return `
+      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="rgba(180,130,0,0.18)" stroke-width="1"/>
+      <text x="-8" y="${(y + 3.5).toFixed(1)}" fill="#6b7280" font-size="10" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+  }).join("");
+
+  const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
 
   return `
     <defs>
       <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.4"/>
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.55"/>
+        <stop offset="75%" stop-color="${color}" stop-opacity="0.12"/>
         <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
       </linearGradient>
     </defs>
+    <rect x="0" y="0" width="${W}" height="${H}" fill="#111008" rx="0"/>
     <g transform="translate(${pad.left},${pad.top})">
       ${yLabels}
       <path d="${areaPath}" fill="url(#${gradId})"/>
-      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>
       ${dots}
       ${xLabels}
     </g>`;
@@ -163,7 +171,7 @@ export default async function EmbedPage({ searchParams }: Props) {
         </div>
       )}
       <svg
-        viewBox={`0 0 800 260`}
+        viewBox={`0 0 800 280`}
         xmlns="http://www.w3.org/2000/svg"
         style={{ width: "100%", height: "auto", display: "block" }}
         dangerouslySetInnerHTML={{ __html: svgContent }}
