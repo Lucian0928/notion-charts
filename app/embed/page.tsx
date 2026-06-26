@@ -140,16 +140,17 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
 }
 
 const CSS = `
-  :root { --bg: #191919; --grid: rgba(180,130,0,0.2); --label: #6b7280; --btn-bg: rgba(255,255,255,0.08); --btn-border: rgba(255,255,255,0.15); }
-  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.09); --label: #9ca3af; --btn-bg: rgba(0,0,0,0.06); --btn-border: rgba(0,0,0,0.12); }
+  :root { --bg: #191919; --grid: rgba(180,130,0,0.2); --label: #6b7280; --btn-bg: rgba(255,255,255,0.1); --btn-border: rgba(255,255,255,0.18); }
+  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.09); --label: #9ca3af; --btn-bg: rgba(0,0,0,0.06); --btn-border: rgba(0,0,0,0.14); }
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); transition: background 0.25s; }
-  .wrap { background: var(--bg); padding: 10px 14px 6px; min-height: 100vh; position: relative; transition: background 0.25s; }
-  .title { font-size: 12px; font-weight: 500; color: var(--label); font-family: -apple-system, sans-serif; margin-bottom: 6px; }
-  .footer { font-size: 10px; color: var(--label); text-align: right; margin-top: 4px; font-family: sans-serif; opacity: 0.7; }
-  .toggle { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--btn-border); background: var(--btn-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: background 0.2s, border-color 0.2s; line-height: 1; padding: 0; }
-  .toggle:hover { opacity: 0.8; }
-  svg { width: 100%; height: auto; display: block; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); }
+  .wrap { background: var(--bg); height: 100vh; display: flex; flex-direction: column; padding: 10px 14px 6px; position: relative; transition: background 0.25s; }
+  .top-row { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; margin-bottom: 4px; min-height: 36px; }
+  .title { font-size: 13px; font-weight: 500; color: var(--label); font-family: -apple-system, sans-serif; }
+  .footer { font-size: 10px; color: var(--label); text-align: right; margin-top: 4px; font-family: sans-serif; opacity: 0.7; flex-shrink: 0; }
+  .toggle { width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--btn-border); background: var(--btn-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: background 0.2s, border-color 0.2s, transform 0.15s; line-height: 1; padding: 0; flex-shrink: 0; }
+  .toggle:hover { transform: scale(1.1); opacity: 0.85; }
+  .chart-svg { flex: 1; min-height: 0; width: 100%; display: block; }
 `;
 
 const INIT_SCRIPT = `
@@ -191,9 +192,12 @@ export default async function EmbedPage({ searchParams }: Props) {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <script dangerouslySetInnerHTML={{ __html: INIT_SCRIPT }} />
       <div className="wrap">
-        <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
-        {title && <div className="title">{title}</div>}
-        <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"
+        <div className="top-row">
+          {title ? <div className="title">{title}</div> : <span/>}
+          <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
+        </div>
+        <svg className="chart-svg" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet"
+          xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
         {!errorMsg && <div className="footer">{data.length} entries</div>}
       </div>
