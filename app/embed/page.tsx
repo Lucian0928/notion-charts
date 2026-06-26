@@ -20,17 +20,15 @@ function EmbedContent() {
   const title = params.get("title") || "";
 
   async function fetchData() {
-    const token = localStorage.getItem("notion_token");
-    if (!token || !databaseId || !xField || !yField) {
-      setError("缺少設定參數或尚未連結 Notion");
+    if (!databaseId || !xField || !yField) {
+      setError("缺少設定參數");
       setLoading(false);
       return;
     }
 
     try {
       const res = await fetch(
-        `/api/notion/query?databaseId=${databaseId}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`,
-        { headers: { "x-notion-token": token } }
+        `/api/notion/query?databaseId=${databaseId}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`
       );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
@@ -62,7 +60,7 @@ function EmbedContent() {
         <div>
           <p className="text-sm text-red-400 mb-2">{error}</p>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            請先在同一瀏覽器開啟主頁並連結 Notion
+            請確認 Vercel 環境變數 NOTION_TOKEN 已設定
           </p>
         </div>
       </div>
