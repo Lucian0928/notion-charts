@@ -18,15 +18,12 @@ export default function DashboardPage() {
       if (!t) { router.push("/setup"); return; }
       setToken(t);
 
-      // Always read localStorage first as source of truth
       const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
-      // Try server-side storage
       try {
         const res = await fetch("/api/charts");
         const json = await res.json();
         if (json.storage !== "unavailable" && Array.isArray(json.charts) && json.charts.length > 0) {
-          // Server has charts — use those and sync to localStorage as backup
           setCharts(json.charts);
           localStorage.setItem("notion_charts", JSON.stringify(json.charts));
           json.charts.forEach((c: ChartConfig) => fetchChartData(c, t));
@@ -34,7 +31,6 @@ export default function DashboardPage() {
         }
       } catch {}
 
-      // Fall back to localStorage
       setCharts(local);
       local.forEach((c: ChartConfig) => fetchChartData(c, t));
     }
@@ -81,12 +77,11 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-white">📊 Notion Charts</h1>
             <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-              {charts.length} 個圖表
+              {charts.length} chart{charts.length !== 1 ? "s" : ""}
             </p>
           </div>
           <div className="flex gap-3">
@@ -94,29 +89,27 @@ export default function DashboardPage() {
               onClick={() => { localStorage.removeItem("notion_token"); router.push("/setup"); }}
               className="btn-ghost text-sm"
             >
-              切換帳號
+              Switch Account
             </button>
             <button onClick={() => router.push("/builder")} className="btn-primary">
-              + 新增圖表
+              + New Chart
             </button>
           </div>
         </div>
 
-        {/* Empty state */}
         {charts.length === 0 && (
           <div className="glass flex flex-col items-center justify-center py-24 text-center">
             <div className="text-5xl mb-4">📈</div>
-            <h2 className="text-lg font-medium text-white mb-2">還沒有圖表</h2>
+            <h2 className="text-lg font-medium text-white mb-2">No charts yet</h2>
             <p className="text-sm mb-6" style={{ color: "var(--muted)" }}>
-              從你的 Notion database 建立第一個圖表
+              Create your first chart from a Notion database
             </p>
             <button onClick={() => router.push("/builder")} className="btn-primary">
-              建立圖表
+              Create Chart
             </button>
           </div>
         )}
 
-        {/* Charts grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {charts.map((config) => (
             <div key={config.id} className="glass p-5">
@@ -137,7 +130,7 @@ export default function DashboardPage() {
                       color: copied === config.id ? "#10b981" : "var(--accent)",
                     }}
                   >
-                    {copied === config.id ? "已複製 ✓" : "複製 Embed URL"}
+                    {copied === config.id ? "Copied ✓" : "Copy Embed URL"}
                   </button>
                   <button
                     onClick={() => router.push(`/builder?id=${config.id}`)}
@@ -148,7 +141,7 @@ export default function DashboardPage() {
                       color: "var(--muted)",
                     }}
                   >
-                    編輯
+                    Edit
                   </button>
                   <button
                     onClick={() => deleteChart(config.id)}
@@ -159,7 +152,7 @@ export default function DashboardPage() {
                       color: "#f43f5e",
                     }}
                   >
-                    刪除
+                    Delete
                   </button>
                 </div>
               </div>
@@ -177,12 +170,12 @@ export default function DashboardPage() {
                   className="flex items-center justify-center h-48 rounded-xl text-sm"
                   style={{ background: "rgba(255,255,255,0.02)", color: "var(--muted)" }}
                 >
-                  載入中...
+                  Loading...
                 </div>
               )}
 
               <p className="text-xs mt-2 text-right" style={{ color: "var(--muted)" }}>
-                {chartData[config.id]?.length ?? "—"} 筆資料
+                {chartData[config.id]?.length ?? "—"} entries
               </p>
             </div>
           ))}

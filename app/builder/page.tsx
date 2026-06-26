@@ -1,17 +1,22 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChartPreview } from "@/components/ChartPreview";
 import { ChartConfig, ChartType, NotionDatabase, NotionProperty } from "@/lib/types";
 
-const CHART_TYPES: { value: ChartType; label: string; icon: string }[] = [
-  { value: "line", label: "折線圖", icon: "📈" },
-  { value: "bar", label: "長條圖", icon: "📊" },
-  { value: "pie", label: "圓餅圖", icon: "🥧" },
+const CHART_TYPES: { value: ChartType; icon: string; title: string }[] = [
+  { value: "line", icon: "📈", title: "Line Chart" },
+  { value: "bar", icon: "📊", title: "Bar Chart" },
+  { value: "pie", icon: "🥧", title: "Pie Chart" },
 ];
 
-const COLORS = ["#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e", "#a855f7"];
+const COLORS = [
+  "#6366f1", "#8b5cf6", "#a855f7", "#ec4899",
+  "#f43f5e", "#f97316", "#f59e0b", "#eab308",
+  "#22c55e", "#10b981", "#14b8a6", "#06b6d4",
+  "#22d3ee", "#3b82f6", "#64748b", "#e2e8f0",
+];
 
 export default function BuilderPage() {
   const router = useRouter();
@@ -63,11 +68,11 @@ export default function BuilderPage() {
   }
 
   async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) {
-    const res = await fetch(`/api/charts?id=${id}`);
-    const json = await res.json();
-    if (!json.chart) return;
+    // Read chart from localStorage (source of truth)
+    const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+    const chart = local.find((c) => c.id === id);
+    if (!chart) return;
 
-    const chart = json.chart;
     setChartName(chart.name || "");
     setChartType(chart.chartType || "line");
     setColor(chart.color || COLORS[0]);
@@ -80,7 +85,10 @@ export default function BuilderPage() {
 
     const [schemaRes, previewRes] = await Promise.all([
       fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": t } }),
-      fetch(`/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`, { headers: { "x-notion-token": t } }),
+      fetch(
+        `/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`,
+        { headers: { "x-notion-token": t } }
+      ),
     ]);
     const [schemaJson, previewJson] = await Promise.all([schemaRes.json(), previewRes.json()]);
     setProperties(schemaJson.properties || []);
@@ -131,12 +139,10 @@ export default function BuilderPage() {
     const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
     if (editId) {
-      // Update in localStorage
       const updated = existing.map((c) =>
         c.id === editId ? { ...c, ...config } : c
       );
       localStorage.setItem("notion_charts", JSON.stringify(updated));
-      // Try server update (best-effort)
       fetch(`/api/charts?id=${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -146,7 +152,6 @@ export default function BuilderPage() {
       const newId = crypto.randomUUID();
       const newChart: ChartConfig = { id: newId, ...config };
       localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
-      // Try server save (best-effort)
       fetch("/api/charts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,21 +165,19 @@ export default function BuilderPage() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => router.push("/")} className="btn-ghost px-3 py-2 text-sm">← 返回</button>
-          <h1 className="text-xl font-semibold text-white">{editId ? "編輯圖表" : "建立新圖表"}</h1>
+          <button onClick={() => router.push("/")} className="btn-ghost px-3 py-2 text-sm">← Back</button>
+          <h1 className="text-xl font-semibold text-white">{editId ? "Edit Chart" : "New Chart"}</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Config */}
           <div className="space-y-4">
 
             {/* Step 1: Select Database */}
             <div className="glass p-5">
-              <h2 className="text-sm font-medium text-white mb-3">1. 選擇 Database</h2>
+              <h2 className="text-sm font-medium text-white mb-3">1. Select Database</h2>
               {loadingDbs ? (
-                <p className="text-sm" style={{ color: "var(--muted)" }}>載入中...</p>
+                <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
               ) : (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {databases.map((db) => (
@@ -198,38 +201,36 @@ export default function BuilderPage() {
             {/* Step 2: Configure */}
             {step >= 2 && (
               <div className="glass p-5 space-y-4">
-                <h2 className="text-sm font-medium text-white">2. 設定圖表</h2>
+                <h2 className="text-sm font-medium text-white">2. Configure</h2>
 
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>圖表類型</label>
+                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>Chart Type</label>
                   <div className="flex gap-2">
                     {CHART_TYPES.map((ct) => (
                       <button
                         key={ct.value}
                         onClick={() => setChartType(ct.value)}
-                        className="flex-1 py-2 rounded-lg text-sm transition-all"
+                        title={ct.title}
+                        className="flex-1 py-2 rounded-lg text-lg transition-all"
                         style={{
-                          background: chartType === ct.value ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${chartType === ct.value ? "var(--accent)" : "var(--border)"}`,
-                          color: chartType === ct.value ? "white" : "var(--muted)",
+                          background: chartType === ct.value ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${chartType === ct.value ? "rgba(255,255,255,0.3)" : "var(--border)"}`,
                         }}
                       >
-                        {ct.icon} {ct.label}
+                        {ct.icon}
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
-                    X 軸（日期/類別）
-                  </label>
+                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>X Axis</label>
                   <select
                     className="glass-input"
                     value={xField}
                     onChange={(e) => setXField(e.target.value)}
                   >
-                    <option value="">選擇欄位</option>
+                    <option value="">Select field</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.name}>{p.name} ({p.type})</option>
                     ))}
@@ -237,15 +238,13 @@ export default function BuilderPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>
-                    Y 軸（數值）
-                  </label>
+                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>Y Axis</label>
                   <select
                     className="glass-input"
                     value={yField}
                     onChange={(e) => setYField(e.target.value)}
                   >
-                    <option value="">選擇欄位</option>
+                    <option value="">Select field</option>
                     {properties.map((p) => (
                       <option key={p.id} value={p.name}>{p.name} ({p.type})</option>
                     ))}
@@ -253,17 +252,17 @@ export default function BuilderPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>顏色</label>
-                  <div className="flex gap-2">
+                  <label className="block text-xs mb-2" style={{ color: "var(--muted)" }}>Color</label>
+                  <div className="flex flex-wrap gap-2">
                     {COLORS.map((c) => (
                       <button
                         key={c}
                         onClick={() => setColor(c)}
-                        className="w-8 h-8 rounded-full transition-transform"
+                        className="w-7 h-7 rounded-full transition-transform"
                         style={{
                           background: c,
-                          transform: color === c ? "scale(1.25)" : "scale(1)",
-                          outline: color === c ? `2px solid white` : "none",
+                          transform: color === c ? "scale(1.3)" : "scale(1)",
+                          outline: color === c ? "2px solid white" : "none",
                           outlineOffset: "2px",
                         }}
                       />
@@ -276,7 +275,7 @@ export default function BuilderPage() {
                   onClick={handlePreview}
                   disabled={!xField || !yField || loadingPreview}
                 >
-                  {loadingPreview ? "載入資料中..." : "預覽圖表"}
+                  {loadingPreview ? "Loading..." : "Preview"}
                 </button>
               </div>
             )}
@@ -284,7 +283,7 @@ export default function BuilderPage() {
             {/* Step 3: Save */}
             {step >= 3 && previewData.length > 0 && (
               <div className="glass p-5 space-y-3">
-                <h2 className="text-sm font-medium text-white">3. 命名並儲存</h2>
+                <h2 className="text-sm font-medium text-white">3. Name & Save</h2>
                 <input
                   className="glass-input"
                   placeholder={`${selectedDb?.name} - ${yField}`}
@@ -292,7 +291,7 @@ export default function BuilderPage() {
                   onChange={(e) => setChartName(e.target.value)}
                 />
                 <button className="btn-primary w-full" onClick={handleSave}>
-                  {editId ? "更新圖表" : "儲存圖表"}
+                  {editId ? "Update Chart" : "Save Chart"}
                 </button>
               </div>
             )}
@@ -300,7 +299,7 @@ export default function BuilderPage() {
 
           {/* Right: Preview */}
           <div className="glass p-5">
-            <h2 className="text-sm font-medium text-white mb-4">預覽</h2>
+            <h2 className="text-sm font-medium text-white mb-4">Preview</h2>
             {previewData.length > 0 ? (
               <ChartPreview
                 data={previewData}
@@ -314,7 +313,7 @@ export default function BuilderPage() {
                 className="flex items-center justify-center h-64 rounded-xl text-sm"
                 style={{ background: "rgba(255,255,255,0.02)", color: "var(--muted)" }}
               >
-                設定完成後點擊「預覽圖表」
+                Configure fields then click Preview
               </div>
             )}
           </div>
