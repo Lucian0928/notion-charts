@@ -12,6 +12,7 @@ interface Props {
   color: string;
   xField: string;
   yField: string;
+  height?: number | string;
 }
 
 const TOOLTIP_STYLE = {
@@ -24,19 +25,19 @@ const TOOLTIP_STYLE = {
 
 const PIE_COLORS = ["#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e", "#a855f7", "#ec4899", "#14b8a6"];
 
-export function ChartPreview({ data, chartType, color, xField, yField }: Props) {
+export function ChartPreview({ data, chartType, color, xField, yField, height = 280 }: Props) {
   const formatted = data.map((d) => ({
     x: typeof d.x === "string" && d.x.length > 10 ? d.x.slice(0, 10) : d.x,
     y: typeof d.y === "number" ? Math.round(d.y * 1000) / 1000 : d.y,
   }));
 
-  const axisStyle = { fill: "#64748b", fontSize: 11 };
+  const axisStyle = { fill: "#64748b", fontSize: 13 };
   const gridStyle = { stroke: "rgba(255,255,255,0.05)" };
 
   if (chartType === "line") {
     return (
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={formatted} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={formatted} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
           <XAxis dataKey="x" tick={axisStyle} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={axisStyle} tickLine={false} axisLine={false} />
@@ -49,8 +50,8 @@ export function ChartPreview({ data, chartType, color, xField, yField }: Props) 
 
   if (chartType === "bar") {
     return (
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={formatted} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={formatted} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" {...gridStyle} />
           <XAxis dataKey="x" tick={axisStyle} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis tick={axisStyle} tickLine={false} axisLine={false} />
@@ -71,7 +72,7 @@ export function ChartPreview({ data, chartType, color, xField, yField }: Props) 
   ).map(([name, value]) => ({ name, value }));
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={height}>
       <PieChart>
         <Pie data={aggregated} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
           {aggregated.map((_, i) => (

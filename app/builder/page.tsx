@@ -376,10 +376,10 @@ export default function BuilderPage() {
         </div>
         <div style={{ flex: 1, minHeight: 0, borderRadius: 16,
           background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
-          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: 16 }}>
           {previewData.length > 0 ? (
-            <div style={{ width: "100%", height: "100%", padding: "16px" }}>
-              <ChartPreview data={previewData} chartType={chartType} color={color} xField={xField} yField={yField} />
+            <div style={{ width: "100%", height: "100%" }}>
+              <ChartPreview data={previewData} chartType={chartType} color={color} xField={xField} yField={yField} height="100%" />
             </div>
           ) : (
             <div style={{ textAlign: "center", color: "var(--muted, #6b7280)" }}>
