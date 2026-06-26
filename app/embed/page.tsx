@@ -54,7 +54,6 @@ async function fetchData(databaseId: string, xField: string, yField: string) {
     }))
     .filter((d) => d.x !== null && d.y !== null);
 
-  // Sort by X value ascending (oldest → newest)
   return raw.sort((a, b) => String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0);
 }
 
@@ -62,8 +61,7 @@ function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr.slice(0, 10);
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const yr = String(d.getFullYear()).slice(2);
-  return `${months[d.getMonth()]} '${yr}`;
+  return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
 }
 
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
@@ -73,12 +71,10 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
-  if (data.length === 0) return `<text fill="#64748b" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+  if (data.length === 0) return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
-
-  // Y axis: always start at 0, end at next clean 0.1 above max
   const yMin = 0;
   const yMax = Math.ceil(maxY * 10) / 10 + 0.1;
   const yRange = yMax - yMin;
@@ -97,7 +93,6 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
     ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="2.5" fill="${color}"/>`).join("")
     : "";
 
-  // X labels: ~8 evenly spaced, formatted as "Jan '25"
   const labelCount = 8;
   const step = Math.max(1, Math.floor((data.length - 1) / (labelCount - 1)));
   const indices = new Set<number>();
@@ -107,23 +102,19 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const xLabels = [...indices].map((i) => {
     const x = sx(i);
     const anchor = i === 0 ? "start" : i === data.length - 1 ? "end" : "middle";
-    const label = formatDateLabel(String(data[i].x));
-    return `<text x="${x.toFixed(1)}" y="${iH + 30}" fill="#6b7280" font-size="10.5" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${iH + 30}" style="fill:var(--label)" font-size="10.5" text-anchor="${anchor}" font-family="ui-monospace,monospace">${formatDateLabel(String(data[i].x))}</text>`;
   }).join("");
 
-  // Y ticks: 0, 0.1, 0.2 ... up to yMax
   const tickStep = 0.1;
   const yTickValues: number[] = [];
-  for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) {
-    yTickValues.push(v);
-  }
+  for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) yTickValues.push(v);
 
   const yLabels = yTickValues.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
     return `
-      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="rgba(180,130,0,0.18)" stroke-width="1"/>
-      <text x="-8" y="${(y + 3.5).toFixed(1)}" fill="#6b7280" font-size="10" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>
+      <text x="-8" y="${(y + 3.5).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
   const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
@@ -136,7 +127,6 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
         <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
       </linearGradient>
     </defs>
-    <rect x="0" y="0" width="${W}" height="${H}" fill="#191919" rx="0"/>
     <g transform="translate(${pad.left},${pad.top})">
       ${yLabels}
       <path d="${areaPath}" fill="url(#${gradId})"/>
@@ -145,6 +135,36 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
       ${xLabels}
     </g>`;
 }
+
+const CSS = `
+  :root { --bg: #191919; --grid: rgba(180,130,0,0.2); --label: #6b7280; --btn-bg: rgba(255,255,255,0.08); --btn-border: rgba(255,255,255,0.15); }
+  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.09); --label: #9ca3af; --btn-bg: rgba(0,0,0,0.06); --btn-border: rgba(0,0,0,0.12); }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); transition: background 0.25s; }
+  .wrap { background: var(--bg); padding: 10px 14px 6px; min-height: 100vh; position: relative; transition: background 0.25s; }
+  .title { font-size: 12px; font-weight: 500; color: var(--label); font-family: -apple-system, sans-serif; margin-bottom: 6px; }
+  .footer { font-size: 10px; color: var(--label); text-align: right; margin-top: 4px; font-family: sans-serif; opacity: 0.7; }
+  .toggle { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--btn-border); background: var(--btn-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: background 0.2s, border-color 0.2s; line-height: 1; padding: 0; }
+  .toggle:hover { opacity: 0.8; }
+  svg { width: 100%; height: auto; display: block; }
+`;
+
+const INIT_SCRIPT = `
+  (function(){
+    var t = localStorage.getItem('nc_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+`;
+
+const TOGGLE_SCRIPT = `
+  document.getElementById('themeBtn').addEventListener('click', function() {
+    var html = document.documentElement;
+    var next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('nc_theme', next);
+    this.textContent = next === 'dark' ? '☀️' : '🌙';
+  });
+`;
 
 export default async function EmbedPage({ searchParams }: Props) {
   const { databaseId = "", xField = "", yField = "", color = "#f59e0b", title = "" } = await searchParams;
@@ -160,27 +180,21 @@ export default async function EmbedPage({ searchParams }: Props) {
   }
 
   const svgContent = errorMsg
-    ? `<text fill="#f87171" x="50%" y="50%" text-anchor="middle" font-size="13">${errorMsg}</text>`
+    ? `<text style="fill:#f87171" x="50%" y="50%" text-anchor="middle" font-size="13">${errorMsg}</text>`
     : renderSvgChart(data, color);
 
   return (
-    <div style={{ background: "#191919", padding: "12px 16px 8px", minHeight: "100vh" }}>
-      {title && (
-        <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 500, marginBottom: "8px", fontFamily: "sans-serif" }}>
-          {title}
-        </div>
-      )}
-      <svg
-        viewBox={`0 0 800 280`}
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ width: "100%", height: "auto", display: "block" }}
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
-      {!errorMsg && (
-        <div style={{ color: "#475569", fontSize: "10px", textAlign: "right", marginTop: "4px", fontFamily: "sans-serif" }}>
-          {data.length} entries
-        </div>
-      )}
-    </div>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      <script dangerouslySetInnerHTML={{ __html: INIT_SCRIPT }} />
+      <div className="wrap">
+        <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
+        {title && <div className="title">{title}</div>}
+        <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg"
+          dangerouslySetInnerHTML={{ __html: svgContent }} />
+        {!errorMsg && <div className="footer">{data.length} entries</div>}
+      </div>
+      <script dangerouslySetInnerHTML={{ __html: TOGGLE_SCRIPT }} />
+    </>
   );
 }
