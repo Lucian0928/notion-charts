@@ -76,8 +76,8 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
   const yMin = 0;
-  const yMax = Math.ceil(maxY * 10) / 10 + 0.1;
-  const yRange = yMax - yMin;
+  const yMax = Math.ceil(maxY * 10) / 10;
+  const yRange = yMax - yMin || 1;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - ((v - yMin) / yRange) * iH;
@@ -208,7 +208,6 @@ const CSS = `
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
     border: none;
     background: none;
     padding: 0;
@@ -216,8 +215,11 @@ const CSS = `
     border-radius: 999px;
     transition: opacity 0.2s;
     -webkit-tap-highlight-color: transparent;
+    color: rgba(255,255,255,0.82);
   }
-  .lg-opt:hover { opacity: 0.75; }
+  html[data-theme="light"] .lg-opt { color: rgba(0,0,0,0.58); }
+  .lg-opt:hover { opacity: 0.7; }
+  .lg-opt svg { display: block; }
 `;
 
 const INIT_SCRIPT = `
@@ -313,8 +315,24 @@ export default async function EmbedPage({ searchParams }: Props) {
         {/* Liquid Glass pill toggle */}
         <div className="lg-pill">
           <div className="lg-bubble" />
-          <button id="moonBtn" className="lg-opt" title="深色模式">🌙</button>
-          <button id="sunBtn"  className="lg-opt" title="淺色模式">☀️</button>
+          <button id="moonBtn" className="lg-opt" title="深色模式">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <button id="sunBtn" className="lg-opt" title="淺色模式">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="4.5"/>
+              <line x1="12" y1="2" x2="12" y2="4.5"/>
+              <line x1="12" y1="19.5" x2="12" y2="22"/>
+              <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
+              <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
+              <line x1="2" y1="12" x2="4.5" y2="12"/>
+              <line x1="19.5" y1="12" x2="22" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
+              <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
+            </svg>
+          </button>
         </div>
 
         {!errorMsg && <div className="footer">{data.length} entries</div>}
