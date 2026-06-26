@@ -67,7 +67,7 @@ function formatDateLabel(dateStr: string): string {
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const W = 800;
   const H = 320;
-  const pad = { top: 20, right: 20, bottom: 70, left: 48 };
+  const pad = { top: 14, right: 12, bottom: 52, left: 34 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -104,7 +104,7 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const xLabels = [...indices].map((i) => {
     const x = sx(i);
     const label = formatDateLabel(String(data[i].x));
-    return `<text transform="translate(${x.toFixed(1)},${iH + 16}) rotate(-45)" style="fill:var(--label)" font-size="11" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   // Y ticks every 0.1
@@ -117,7 +117,7 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
     if (y < -2 || y > iH + 2) return "";
     return `
       <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>
-      <text x="-10" y="${(y + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+      <text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
   const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
