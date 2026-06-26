@@ -174,14 +174,26 @@ export default function BuilderPage() {
 
     if (editId) {
       const chart    = existing.find(c => c.id === editId);
-      const notionId = chart?.notionId;
+      let   notionId = chart?.notionId;
       const updated  = existing.map(c => c.id === editId ? { ...c, ...config } : c);
       localStorage.setItem("notion_charts", JSON.stringify(updated));
-      // Await so Notion is up-to-date before embed can be refreshed
+
       if (notionId) {
+        // Await so Notion is up-to-date before embed can be refreshed
         await fetch(`/api/charts?id=${notionId}`, {
           method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
         }).catch(() => {});
+      } else {
+        // No Notion page yet — create one and back-fill notionId so embed URL becomes stable
+        try {
+          const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+          const rj = await r.json();
+          if (rj.id) {
+            const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+            const idx = charts.findIndex(c => c.id === editId);
+            if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
+          }
+        } catch {}
       }
     } else {
       const newId    = crypto.randomUUID();
