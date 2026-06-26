@@ -12,6 +12,17 @@ export default function DashboardPage() {
   const [token, setToken] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
 
+  async function fetchChartData(config: ChartConfig, t: string) { // eslint-disable-line
+    try {
+      const res = await fetch(
+        `/api/notion/query?databaseId=${config.databaseId}&xField=${encodeURIComponent(config.xField)}&yField=${encodeURIComponent(config.yField)}`,
+        { headers: { "x-notion-token": t } }
+      );
+      const json = await res.json();
+      setChartData((prev) => ({ ...prev, [config.id]: json.data || [] }));
+    } catch {}
+  }
+
   useEffect(() => {
     async function init() {
       const t = localStorage.getItem("notion_token");
@@ -42,17 +53,6 @@ export default function DashboardPage() {
     }
     init();
   }, []);
-
-  async function fetchChartData(config: ChartConfig, t: string) {
-    try {
-      const res = await fetch(
-        `/api/notion/query?databaseId=${config.databaseId}&xField=${encodeURIComponent(config.xField)}&yField=${encodeURIComponent(config.yField)}`,
-        { headers: { "x-notion-token": t } }
-      );
-      const json = await res.json();
-      setChartData((prev) => ({ ...prev, [config.id]: json.data || [] }));
-    } catch {}
-  }
 
   async function deleteChart(id: string) {
     const updated = charts.filter((c) => c.id !== id);

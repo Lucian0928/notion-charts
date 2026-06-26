@@ -103,18 +103,6 @@ export default function BuilderPage() {
   }
 
   // ── Init ────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    async function init() {
-      const t = localStorage.getItem("notion_token");
-      if (!t) { router.push("/setup"); return; }
-      setToken(t);
-      const dbs = await fetchDatabases(t);
-      const id = new URLSearchParams(window.location.search).get("id");
-      if (id) { setEditId(id); await loadEditChart(id, dbs, t); }
-    }
-    init();
-  }, []);
-
   async function fetchDatabases(t: string): Promise<NotionDatabase[]> {
     setLoadingDbs(true);
     try {
@@ -126,7 +114,20 @@ export default function BuilderPage() {
     } finally { setLoadingDbs(false); }
   }
 
-  async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) {
+  useEffect(() => {
+    async function init() {
+      const t = localStorage.getItem("notion_token");
+      if (!t) { router.push("/setup"); return; }
+      setToken(t);
+      const dbs = await fetchDatabases(t);
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (id) { setEditId(id); await loadEditChart(id, dbs, t); } // eslint-disable-line
+    }
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) { // eslint-disable-line
     const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
     const chart = local.find((c) => c.id === id);
     if (!chart) return;
@@ -178,7 +179,7 @@ export default function BuilderPage() {
 
     if (editId) {
       const chart    = existing.find(c => c.id === editId);
-      let   notionId = chart?.notionId;
+      const notionId = chart?.notionId;
       const updated  = existing.map(c => c.id === editId ? { ...c, ...config } : c);
       localStorage.setItem("notion_charts", JSON.stringify(updated));
 
