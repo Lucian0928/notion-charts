@@ -1,53 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChartPreview } from "@/components/ChartPreview";
 import { ChartConfig, ChartType, NotionDatabase, NotionProperty } from "@/lib/types";
 
-const CHART_TYPES: { value: ChartType; icon: string; title: string }[] = [
-  { value: "line", icon: "📈", title: "Line Chart" },
-  { value: "bar", icon: "📊", title: "Bar Chart" },
-  { value: "pie", icon: "🥧", title: "Pie Chart" },
+// ── SVG icons ────────────────────────────────────────────────────────────────
+const LineIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3,17 8,9 13,13 21,4"/>
+    <path d="M3,17 8,9 13,13 21,4 21,20 3,20 Z"
+      fill="currentColor" fillOpacity="0.12" stroke="none"/>
+  </svg>
+);
+const BarIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="4" height="10" rx="0.8"/>
+    <rect x="10" y="6" width="4" height="15" rx="0.8"/>
+    <rect x="17" y="3" width="4" height="18" rx="0.8"/>
+  </svg>
+);
+const PieIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v10l7.4 4.3"/>
+    <circle cx="12" cy="12" r="10"/>
+  </svg>
+);
+
+const CHART_TYPES: { value: ChartType; title: string; Icon: () => React.ReactElement }[] = [
+  { value: "line", title: "Line Chart",  Icon: LineIcon },
+  { value: "bar",  title: "Bar Chart",   Icon: BarIcon  },
+  { value: "pie",  title: "Pie Chart",   Icon: PieIcon  },
 ];
 
-const COLORS = [
-  "#6366f1", "#8b5cf6", "#a855f7", "#ec4899",
-  "#f43f5e", "#f97316", "#f59e0b", "#eab308",
-  "#22c55e", "#10b981", "#14b8a6", "#06b6d4",
-  "#22d3ee", "#3b82f6", "#64748b", "#e2e8f0",
+// ── Color presets ─────────────────────────────────────────────────────────────
+const PRESETS = [
+  "#6366f1","#8b5cf6","#a855f7","#ec4899",
+  "#f43f5e","#f97316","#f59e0b","#eab308",
+  "#22c55e","#10b981","#14b8a6","#06b6d4",
+  "#22d3ee","#3b82f6","#64748b","#e2e8f0",
 ];
 
+// ── Color utils ───────────────────────────────────────────────────────────────
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace("#", ""), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("");
+}
+function validHex(h: string) { return /^#[0-9a-f]{6}$/i.test(h); }
+
+// ── Sidebar label ─────────────────────────────────────────────────────────────
+function SLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ fontSize: 11, fontWeight: 500, color: "var(--muted, #6b7280)",
+      textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+      {children}
+    </p>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function BuilderPage() {
   const router = useRouter();
-  const [token, setToken] = useState("");
-  const [editId, setEditId] = useState<string | null>(null);
-  const [databases, setDatabases] = useState<NotionDatabase[]>([]);
-  const [selectedDb, setSelectedDb] = useState<NotionDatabase | null>(null);
-  const [properties, setProperties] = useState<NotionProperty[]>([]);
-  const [chartType, setChartType] = useState<ChartType>("line");
-  const [xField, setXField] = useState("");
-  const [yField, setYField] = useState("");
-  const [chartName, setChartName] = useState("");
-  const [color, setColor] = useState(COLORS[0]);
-  const [previewData, setPreviewData] = useState<{ x: any; y: any }[]>([]);
-  const [loadingDbs, setLoadingDbs] = useState(false);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const [step, setStep] = useState(1);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
+  const [token,        setToken]        = useState("");
+  const [editId,       setEditId]       = useState<string | null>(null);
+  const [databases,    setDatabases]    = useState<NotionDatabase[]>([]);
+  const [selectedDb,   setSelectedDb]   = useState<NotionDatabase | null>(null);
+  const [properties,   setProperties]   = useState<NotionProperty[]>([]);
+  const [chartType,    setChartType]    = useState<ChartType>("line");
+  const [xField,       setXField]       = useState("");
+  const [yField,       setYField]       = useState("");
+  const [chartName,    setChartName]    = useState("");
+  const [color,        setColor]        = useState(PRESETS[0]);
+  const [hexInput,     setHexInput]     = useState(PRESETS[0]);
+  const [rgb,          setRgb]          = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
+  const [previewData,  setPreviewData]  = useState<{ x: any; y: any }[]>([]);
+  const [loadingDbs,   setLoadingDbs]   = useState(false);
+  const [loadingPrev,  setLoadingPrev]  = useState(false);
+  const [step,         setStep]         = useState(1);
+  const [saving,       setSaving]       = useState(false);
+
+  // ── Color sync ──────────────────────────────────────────────────────────────
+  function applyColor(hex: string) {
+    if (!validHex(hex)) return;
+    setColor(hex);
+    setHexInput(hex);
+    setRgb(hexToRgb(hex));
+  }
+  function applyRgb(r: number, g: number, b: number) {
+    const hex = rgbToHex(r, g, b);
+    setColor(hex);
+    setHexInput(hex);
+    setRgb([r, g, b]);
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       const t = localStorage.getItem("notion_token");
       if (!t) { router.push("/setup"); return; }
       setToken(t);
-
       const dbs = await fetchDatabases(t);
-
       const id = new URLSearchParams(window.location.search).get("id");
-      if (id) {
-        setEditId(id);
-        await loadEditChart(id, dbs, t);
-      }
+      if (id) { setEditId(id); await loadEditChart(id, dbs, t); }
     }
     init();
   }, []);
@@ -55,53 +117,39 @@ export default function BuilderPage() {
   async function fetchDatabases(t: string): Promise<NotionDatabase[]> {
     setLoadingDbs(true);
     try {
-      const res = await fetch("/api/notion/databases", {
-        headers: { "x-notion-token": t },
-      });
+      const res  = await fetch("/api/notion/databases", { headers: { "x-notion-token": t } });
       const json = await res.json();
       const dbs: NotionDatabase[] = json.databases || [];
       setDatabases(dbs);
       return dbs;
-    } finally {
-      setLoadingDbs(false);
-    }
+    } finally { setLoadingDbs(false); }
   }
 
   async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) {
-    // Read chart from localStorage (source of truth)
     const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
     const chart = local.find((c) => c.id === id);
     if (!chart) return;
-
     setChartName(chart.name || "");
     setChartType(chart.chartType || "line");
-    setColor(chart.color || COLORS[0]);
+    applyColor(chart.color || PRESETS[0]);
     setXField(chart.xField || "");
     setYField(chart.yField || "");
-
     const db = dbs.find((d) => d.id === chart.databaseId);
     if (!db) return;
     setSelectedDb(db);
-
-    const [schemaRes, previewRes] = await Promise.all([
+    const [sr, pr] = await Promise.all([
       fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": t } }),
-      fetch(
-        `/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`,
-        { headers: { "x-notion-token": t } }
-      ),
+      fetch(`/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`, { headers: { "x-notion-token": t } }),
     ]);
-    const [schemaJson, previewJson] = await Promise.all([schemaRes.json(), previewRes.json()]);
-    setProperties(schemaJson.properties || []);
-    setPreviewData(previewJson.data || []);
+    const [sj, pj] = await Promise.all([sr.json(), pr.json()]);
+    setProperties(sj.properties || []);
+    setPreviewData(pj.data || []);
     setStep(3);
   }
 
   async function handleSelectDb(db: NotionDatabase) {
-    setSelectedDb(db);
-    setXField(""); setYField(""); setPreviewData([]);
-    const res = await fetch(`/api/notion/schema?databaseId=${db.id}`, {
-      headers: { "x-notion-token": token },
-    });
+    setSelectedDb(db); setXField(""); setYField(""); setPreviewData([]);
+    const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token } });
     const json = await res.json();
     setProperties(json.properties || []);
     setStep(2);
@@ -109,216 +157,238 @@ export default function BuilderPage() {
 
   async function handlePreview() {
     if (!selectedDb || !xField || !yField) return;
-    setLoadingPreview(true);
+    setLoadingPrev(true);
     try {
-      const res = await fetch(
-        `/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`,
-        { headers: { "x-notion-token": token } }
-      );
+      const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`, { headers: { "x-notion-token": token } });
       const json = await res.json();
       setPreviewData(json.data || []);
       setStep(3);
-    } finally {
-      setLoadingPreview(false);
-    }
+    } finally { setLoadingPrev(false); }
   }
 
   async function handleSave() {
-    const name = chartName || `${selectedDb!.name} - ${yField}`;
-    const config = {
-      name,
-      databaseId: selectedDb!.id,
-      databaseName: selectedDb!.name,
-      chartType,
-      xField,
-      yField,
-      color,
-      createdAt: Date.now(),
-    };
-
+    setSaving(true);
+    const name   = chartName || `${selectedDb!.name} - ${yField}`;
+    const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
     const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-
     if (editId) {
-      const updated = existing.map((c) =>
-        c.id === editId ? { ...c, ...config } : c
-      );
+      const updated = existing.map((c) => c.id === editId ? { ...c, ...config } : c);
       localStorage.setItem("notion_charts", JSON.stringify(updated));
-      fetch(`/api/charts?id=${editId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      }).catch(() => {});
+      fetch(`/api/charts?id=${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).catch(() => {});
     } else {
-      const newId = crypto.randomUUID();
-      const newChart: ChartConfig = { id: newId, ...config };
+      const newChart: ChartConfig = { id: crypto.randomUUID(), ...config };
       localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
-      fetch("/api/charts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
-      }).catch(() => {});
+      fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).catch(() => {});
     }
-
     router.push("/");
   }
 
+  // ── Shared input style ──────────────────────────────────────────────────────
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 8, padding: "8px 10px", color: "white", fontSize: 13, outline: "none",
+  };
+  const numInputStyle: React.CSSProperties = {
+    ...inputStyle, width: 56, textAlign: "center", padding: "8px 4px",
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => router.push("/")} className="btn-ghost px-3 py-2 text-sm">← Back</button>
-          <h1 className="text-xl font-semibold text-white">{editId ? "Edit Chart" : "New Chart"}</h1>
+    <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "#0a0a0f" }}>
+
+      {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
+      <aside style={{
+        width: 300, minWidth: 300, overflowY: "auto",
+        borderRight: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(255,255,255,0.015)",
+        display: "flex", flexDirection: "column",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => router.push("/")}
+            style={{ background: "none", border: "none", color: "var(--muted, #6b7280)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }}>
+            ←
+          </button>
+          <span style={{ color: "white", fontWeight: 600, fontSize: 15 }}>
+            {editId ? "Edit Chart" : "New Chart"}
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 24, flex: 1 }}>
 
-            {/* Step 1: Select Database */}
-            <div className="glass p-5">
-              <h2 className="text-sm font-medium text-white mb-3">1. Select Database</h2>
-              {loadingDbs ? (
-                <p className="text-sm" style={{ color: "var(--muted)" }}>Loading...</p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {databases.map((db) => (
-                    <button
-                      key={db.id}
-                      onClick={() => handleSelectDb(db)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm transition-all"
-                      style={{
-                        background: selectedDb?.id === db.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${selectedDb?.id === db.id ? "var(--accent)" : "var(--border)"}`,
-                        color: selectedDb?.id === db.id ? "white" : "var(--muted)",
-                      }}
-                    >
-                      📋 {db.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Step 2: Configure */}
-            {step >= 2 && (
-              <div className="glass p-5 space-y-4">
-                <h2 className="text-sm font-medium text-white">2. Configure</h2>
-
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>Chart Type</label>
-                  <div className="flex gap-2">
-                    {CHART_TYPES.map((ct) => (
-                      <button
-                        key={ct.value}
-                        onClick={() => setChartType(ct.value)}
-                        title={ct.title}
-                        className="flex-1 py-2 rounded-lg text-lg transition-all"
-                        style={{
-                          background: chartType === ct.value ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${chartType === ct.value ? "rgba(255,255,255,0.3)" : "var(--border)"}`,
-                        }}
-                      >
-                        {ct.icon}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>X Axis</label>
-                  <select
-                    className="glass-input"
-                    value={xField}
-                    onChange={(e) => setXField(e.target.value)}
-                  >
-                    <option value="">Select field</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.name}>{p.name} ({p.type})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: "var(--muted)" }}>Y Axis</label>
-                  <select
-                    className="glass-input"
-                    value={yField}
-                    onChange={(e) => setYField(e.target.value)}
-                  >
-                    <option value="">Select field</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.name}>{p.name} ({p.type})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs mb-2" style={{ color: "var(--muted)" }}>Color</label>
-                  <div className="flex flex-wrap gap-2">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setColor(c)}
-                        className="w-7 h-7 rounded-full transition-transform"
-                        style={{
-                          background: c,
-                          transform: color === c ? "scale(1.3)" : "scale(1)",
-                          outline: color === c ? "2px solid white" : "none",
-                          outlineOffset: "2px",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <button
-                  className="btn-primary w-full"
-                  onClick={handlePreview}
-                  disabled={!xField || !yField || loadingPreview}
-                >
-                  {loadingPreview ? "Loading..." : "Preview"}
-                </button>
-              </div>
-            )}
-
-            {/* Step 3: Save */}
-            {step >= 3 && previewData.length > 0 && (
-              <div className="glass p-5 space-y-3">
-                <h2 className="text-sm font-medium text-white">3. Name & Save</h2>
-                <input
-                  className="glass-input"
-                  placeholder={`${selectedDb?.name} - ${yField}`}
-                  value={chartName}
-                  onChange={(e) => setChartName(e.target.value)}
-                />
-                <button className="btn-primary w-full" onClick={handleSave}>
-                  {editId ? "Update Chart" : "Save Chart"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Preview */}
-          <div className="glass p-5">
-            <h2 className="text-sm font-medium text-white mb-4">Preview</h2>
-            {previewData.length > 0 ? (
-              <ChartPreview
-                data={previewData}
-                chartType={chartType}
-                color={color}
-                xField={xField}
-                yField={yField}
-              />
+          {/* 1. Database */}
+          <div>
+            <SLabel>Database</SLabel>
+            {loadingDbs ? (
+              <p style={{ fontSize: 13, color: "var(--muted, #6b7280)" }}>Loading...</p>
             ) : (
-              <div
-                className="flex items-center justify-center h-64 rounded-xl text-sm"
-                style={{ background: "rgba(255,255,255,0.02)", color: "var(--muted)" }}
-              >
-                Configure fields then click Preview
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+                {databases.map((db) => (
+                  <button key={db.id} onClick={() => handleSelectDb(db)}
+                    style={{
+                      textAlign: "left", padding: "8px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                      background: selectedDb?.id === db.id ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${selectedDb?.id === db.id ? "rgba(99,102,241,0.5)" : "rgba(255,255,255,0.08)"}`,
+                      color: selectedDb?.id === db.id ? "white" : "var(--muted, #6b7280)",
+                      transition: "all 0.15s",
+                    }}>
+                    {db.name}
+                  </button>
+                ))}
               </div>
             )}
           </div>
+
+          {/* 2. Chart Type */}
+          {step >= 2 && (
+            <div>
+              <SLabel>Chart Type</SLabel>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {CHART_TYPES.map(({ value, title, Icon }) => (
+                  <button key={value} onClick={() => setChartType(value)} title={title}
+                    style={{
+                      padding: "12px 0", borderRadius: 10, cursor: "pointer", transition: "all 0.15s",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: chartType === value ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
+                      border: `1.5px solid ${chartType === value ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.08)"}`,
+                      color: chartType === value ? "white" : "rgba(255,255,255,0.45)",
+                    }}>
+                    <Icon />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3. X / Y Axis */}
+          {step >= 2 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <SLabel>X Axis</SLabel>
+                <select value={xField} onChange={(e) => setXField(e.target.value)} style={inputStyle as any}>
+                  <option value="">Select field</option>
+                  {properties.map((p) => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                </select>
+              </div>
+              <div>
+                <SLabel>Y Axis</SLabel>
+                <select value={yField} onChange={(e) => setYField(e.target.value)} style={inputStyle as any}>
+                  <option value="">Select field</option>
+                  {properties.map((p) => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                </select>
+              </div>
+              <button onClick={handlePreview} disabled={!xField || !yField || loadingPrev}
+                style={{
+                  padding: "9px 0", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer",
+                  background: "rgba(99,102,241,0.25)", border: "1px solid rgba(99,102,241,0.4)", color: "#a5b4fc",
+                  opacity: (!xField || !yField || loadingPrev) ? 0.5 : 1,
+                }}>
+                {loadingPrev ? "Loading..." : "Preview"}
+              </button>
+            </div>
+          )}
+
+          {/* 4. Color */}
+          {step >= 2 && (
+            <div>
+              <SLabel>Color</SLabel>
+
+              {/* Swatch + Hex */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div onClick={() => colorInputRef.current?.click()}
+                    style={{ width: 38, height: 38, background: color, borderRadius: 8, cursor: "pointer",
+                      border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }} />
+                  <input ref={colorInputRef} type="color" value={color}
+                    onChange={(e) => applyColor(e.target.value)}
+                    style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+                </div>
+                <input type="text" value={hexInput} maxLength={7}
+                  onChange={(e) => { setHexInput(e.target.value); applyColor(e.target.value); }}
+                  style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", flex: 1 }}
+                  placeholder="#6366f1"
+                />
+              </div>
+
+              {/* RGB */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                {(["R","G","B"] as const).map((ch, i) => (
+                  <div key={ch} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                    <input type="number" min={0} max={255} value={rgb[i]}
+                      onChange={(e) => {
+                        const val = Math.max(0, Math.min(255, Number(e.target.value)));
+                        const next: [number,number,number] = [...rgb] as any;
+                        next[i] = val;
+                        applyRgb(...next);
+                      }}
+                      style={{ ...numInputStyle, width: "100%" }}
+                    />
+                    <span style={{ fontSize: 10, color: "var(--muted, #6b7280)" }}>{ch}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Preset swatches */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {PRESETS.map((c) => (
+                  <button key={c} onClick={() => applyColor(c)}
+                    style={{
+                      width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer",
+                      border: `2px solid ${color === c ? "white" : "transparent"}`,
+                      transform: color === c ? "scale(1.2)" : "scale(1)",
+                      transition: "all 0.15s", outline: "none",
+                    }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 5. Name & Save */}
+          {step >= 3 && previewData.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <SLabel>Chart Name</SLabel>
+              <input value={chartName} onChange={(e) => setChartName(e.target.value)}
+                placeholder={`${selectedDb?.name} - ${yField}`}
+                style={inputStyle}
+              />
+              <button onClick={handleSave} disabled={saving}
+                style={{
+                  padding: "10px 0", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: "pointer",
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  border: "none", color: "white", marginTop: 4,
+                  opacity: saving ? 0.7 : 1,
+                }}>
+                {saving ? "Saving..." : editId ? "Update Chart" : "Save Chart"}
+              </button>
+            </div>
+          )}
+
         </div>
-      </div>
+      </aside>
+
+      {/* ── Right: Preview ───────────────────────────────────────────────── */}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "28px 32px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ color: "white", fontWeight: 600, fontSize: 15 }}>Preview</span>
+          {previewData.length > 0 && (
+            <span style={{ fontSize: 12, color: "var(--muted, #6b7280)" }}>{previewData.length} entries</span>
+          )}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, borderRadius: 16,
+          background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)",
+          display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          {previewData.length > 0 ? (
+            <div style={{ width: "100%", height: "100%", padding: "16px" }}>
+              <ChartPreview data={previewData} chartType={chartType} color={color} xField={xField} yField={yField} />
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", color: "var(--muted, #6b7280)" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
+              <p style={{ fontSize: 14 }}>Configure fields then click Preview</p>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
