@@ -171,66 +171,40 @@ export default function BuilderPage() {
   async function handleSave() {
     setSaving(true);
     setSaveMsg(null);
-    let notionOk = false;
     try {
-    const name   = chartName || `${selectedDb!.name} - ${yField}`;
-    const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
-    const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+      const name   = chartName || `${selectedDb!.name} - ${yField}`;
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
+      const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
-    if (editId) {
-      const chart    = existing.find(c => c.id === editId);
-      const notionId = chart?.notionId;
-      const updated  = existing.map(c => c.id === editId ? { ...c, ...config } : c);
-      localStorage.setItem("notion_charts", JSON.stringify(updated));
+      let savedId: string;
 
-      if (notionId) {
-        try {
-          const r = await fetch(`/api/charts?id=${notionId}`, {
-            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
-          });
-          const rj = await r.json();
-          notionOk = rj.ok === true;
-          if (!notionOk) setSaveMsg({ ok: false, text: `✗ Notion PUT failed: ${rj.error || JSON.stringify(rj)}` });
-        } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion PUT error: ${e.message}` }); }
-      } else {
-        // No Notion page yet — create one and back-fill notionId
-        try {
-          const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
-          const rj = await r.json();
-          if (rj.id) {
-            const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-            const idx = charts.findIndex(c => c.id === editId);
-            if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
-            notionOk = true;
-          } else { setSaveMsg({ ok: false, text: `✗ Notion POST failed: ${rj.error || JSON.stringify(rj)}` }); }
-        } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion POST error: ${e.message}` }); }
-      }
-    } else {
-      const newId    = crypto.randomUUID();
-      const newChart: ChartConfig = { id: newId, ...config };
-      localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
-      try {
-        const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+      if (editId) {
+        savedId = editId;
+        const updated = existing.map(c => c.id === editId ? { ...c, ...config } : c);
+        localStorage.setItem("notion_charts", JSON.stringify(updated));
+        const r  = await fetch(`/api/charts?id=${editId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        });
         const rj = await r.json();
-        if (rj.id) {
-          const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-          const idx = charts.findIndex(c => c.id === newId);
-          if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
-          notionOk = true;
-        } else { setSaveMsg({ ok: false, text: `✗ Notion POST failed: ${rj.error || JSON.stringify(rj)}` }); }
-      } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion POST error: ${e.message}` }); }
-    }
+        if (!rj.ok) throw new Error(rj.error || "PUT failed");
+      } else {
+        savedId = crypto.randomUUID();
+        const newChart: ChartConfig = { id: savedId, ...config };
+        localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
+        const r  = await fetch("/api/charts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newChart),
+        });
+        const rj = await r.json();
+        if (!rj.id) throw new Error(rj.error || "POST failed");
+      }
+
+      setSaveMsg({ ok: true, text: "✓ Saved — embed URL auto-syncs on refresh" });
     } catch (e: any) {
-      console.error("[builder] handleSave error:", e);
+      setSaveMsg({ ok: false, text: `✗ Save failed: ${e.message}` });
     }
     setSaving(false);
-    setSaveMsg(prev =>
-      prev && !prev.ok
-        ? prev  // keep specific error message already set
-        : notionOk
-          ? { ok: true,  text: "✓ Saved to Notion — embed auto-syncs" }
-          : { ok: false, text: "✗ Notion sync failed — locally saved only" }
-    );
     setTimeout(() => router.push("/"), 3000);
   }
 

@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { kv } from "@vercel/kv";
 import { getNotionClient } from "@/lib/notion";
 import { renderSvgChart } from "@/lib/chartSvg";
 
@@ -274,28 +275,25 @@ export default async function EmbedPage({ searchParams }: Props) {
   let yField = params.yField || "";
   let color = params.color || "#6366f1";
 
-  let notionFetchStatus = "skipped";
-  let notionRaw = "";
+  let kvStatus = "skipped";
 
-  // If ?id= is provided, fetch latest config from Notion (stable embed URL)
+  // If ?id= is provided, fetch latest config from KV (stable embed URL)
   if (id) {
     try {
-      const token = process.env.NOTION_CHARTS_TOKEN;
-      if (!token) { notionFetchStatus = "no-token"; }
-      else {
-        const notion = getNotionClient(token);
-        const page = await notion.pages.retrieve({ page_id: id }) as any;
-        notionRaw = page.properties?.Config?.rich_text?.[0]?.plain_text || "{}";
-        const cfg = JSON.parse(notionRaw);
-        notionFetchStatus = "ok";
-        if (cfg.databaseId) databaseId = cfg.databaseId;
-        if (cfg.xField) xField = cfg.xField;
-        if (cfg.yField) yField = cfg.yField;
-        if (cfg.color) color = cfg.color;
+      const charts = (await kv.get<any[]>("nc_charts")) || [];
+      const chart = charts.find((c: any) => c.id === id);
+      if (chart) {
+        kvStatus = "ok";
+        if (chart.databaseId) databaseId = chart.databaseId;
+        if (chart.xField) xField = chart.xField;
+        if (chart.yField) yField = chart.yField;
+        if (chart.color) color = chart.color;
+      } else {
+        kvStatus = "not-found";
       }
     } catch (e: any) {
-      notionFetchStatus = "error: " + e.message;
-      console.error("[embed] Failed to fetch config by id:", e);
+      kvStatus = "error: " + e.message;
+      console.error("[embed] KV fetch failed:", e);
     }
   }
 
@@ -361,7 +359,7 @@ export default async function EmbedPage({ searchParams }: Props) {
               <span style={{
                 display: "inline-block", width: 8, height: 8, borderRadius: "50%",
                 background: color, border: "1px solid rgba(255,255,255,0.3)", flexShrink: 0,
-              }} title={`color: ${color} · source: ${notionFetchStatus}`} />
+              }} title={`color: ${color}`} />
             )}
             {data.length} entries
           </div>
@@ -375,7 +373,7 @@ export default async function EmbedPage({ searchParams }: Props) {
             lineHeight:1.8, zIndex:99999,
           }}>
             <b>id:</b> {id || "(none)"} &nbsp;|&nbsp;
-            <b>notion:</b> {notionFetchStatus} &nbsp;|&nbsp;
+            <b>kv:</b> {kvStatus} &nbsp;|&nbsp;
             <b>color:</b> {color} &nbsp;|&nbsp;
             <b>db:</b> {databaseId ? databaseId.slice(0,8)+"…" : "(none)"}
           </div>

@@ -2,7 +2,6 @@ export type ChartType = "line" | "bar" | "pie";
 
 export interface ChartConfig {
   id: string;
-  notionId?: string;
   name: string;
   databaseId: string;
   databaseName: string;
