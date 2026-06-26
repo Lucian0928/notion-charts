@@ -3,6 +3,7 @@ import { renderSvgChart } from "@/lib/chartSvg";
 
 interface Props {
   searchParams: Promise<{
+    id?: string;
     databaseId?: string;
     xField?: string;
     yField?: string;
@@ -69,9 +70,6 @@ const CSS = `
 
   /* Liquid Glass pill */
   .lg-pill {
-    position: absolute;
-    top: 14px;
-    left: 14px;
     display: flex;
     align-items: center;
     height: 38px;
@@ -89,14 +87,51 @@ const CSS = `
       0 4px 24px rgba(0,0,0,0.28),
       0 1px 0 rgba(255,255,255,0.18) inset,
       0 -1px 0 rgba(0,0,0,0.12) inset;
+    transition: box-shadow 0.2s;
+  }
+  /* Controls wrapper (pill + refresh) — fade in on hover */
+  .lg-controls {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.25s, box-shadow 0.2s;
+    transition: opacity 0.25s;
   }
-  .wrap:hover .lg-pill {
+  .wrap:hover .lg-controls {
     opacity: 1;
     pointer-events: auto;
   }
+  /* Refresh circle button — same glass material */
+  .lg-refresh {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(120,120,128,0.28);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.18) inset;
+    color: rgba(255,255,255,0.82);
+    transition: box-shadow 0.2s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  html[data-theme="light"] .lg-refresh {
+    background: rgba(255,255,255,0.45);
+    border-color: rgba(255,255,255,0.55);
+    color: rgba(0,0,0,0.58);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.9) inset;
+  }
+  .lg-refresh:hover { box-shadow: 0 6px 30px rgba(0,0,0,0.34), 0 1px 0 rgba(255,255,255,0.22) inset; }
+  .lg-refresh svg { display: block; }
   html[data-theme="light"] .lg-pill {
     background: rgba(255,255,255,0.45);
     border-color: rgba(255,255,255,0.55);
@@ -208,17 +243,46 @@ const TOGGLE_SCRIPT = `
   document.addEventListener('touchmove',  pointerMove, { passive: false });
   document.addEventListener('mouseup',    pointerEnd);
   document.addEventListener('touchend',   pointerEnd);
+
+  // Refresh button
+  var refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) refreshBtn.addEventListener('click', function() { window.location.reload(); });
 })();
 `;
 
 export default async function EmbedPage({ searchParams }: Props) {
-  const { databaseId = "", xField = "", yField = "", color = "#f59e0b", title = "" } = await searchParams;
+  const params = await searchParams;
+  const { id } = params;
+
+  let databaseId = params.databaseId || "";
+  let xField = params.xField || "";
+  let yField = params.yField || "";
+  let color = params.color || "#f59e0b";
+
+  // If ?id= is provided, fetch latest config from Notion (stable embed URL)
+  if (id) {
+    try {
+      const token = process.env.NOTION_CHARTS_TOKEN;
+      if (token) {
+        const notion = getNotionClient(token);
+        const page = await notion.pages.retrieve({ page_id: id }) as any;
+        const raw = page.properties?.Config?.rich_text?.[0]?.plain_text || "{}";
+        const cfg = JSON.parse(raw);
+        if (cfg.databaseId) databaseId = cfg.databaseId;
+        if (cfg.xField) xField = cfg.xField;
+        if (cfg.yField) yField = cfg.yField;
+        if (cfg.color) color = cfg.color;
+      }
+    } catch (e) {
+      console.error("[embed] Failed to fetch config by id:", e);
+    }
+  }
 
   let data: { x: any; y: any }[] = [];
   let errorMsg = "";
 
   try {
-    if (!databaseId || !xField || !yField) throw new Error("缺少設定參數");
+    if (!databaseId || !xField || !yField) throw new Error("Missing config params");
     data = await fetchData(databaseId, xField, yField);
   } catch (e: any) {
     errorMsg = e.message;
@@ -237,25 +301,35 @@ export default async function EmbedPage({ searchParams }: Props) {
           xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
 
-        {/* Liquid Glass pill toggle */}
-        <div className="lg-pill">
-          <div className="lg-bubble" />
-          <button id="moonBtn" className="lg-opt" title="深色模式">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </button>
-          <button id="sunBtn" className="lg-opt" title="淺色模式">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="4.5"/>
-              <line x1="12" y1="2" x2="12" y2="4.5"/>
-              <line x1="12" y1="19.5" x2="12" y2="22"/>
-              <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
-              <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
-              <line x1="2" y1="12" x2="4.5" y2="12"/>
-              <line x1="19.5" y1="12" x2="22" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
-              <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
+        {/* Controls: pill toggle + refresh button (fade in on hover) */}
+        <div className="lg-controls">
+          <div className="lg-pill">
+            <div className="lg-bubble" />
+            <button id="moonBtn" className="lg-opt" title="Dark mode">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            </button>
+            <button id="sunBtn" className="lg-opt" title="Light mode">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="4.5"/>
+                <line x1="12" y1="2" x2="12" y2="4.5"/>
+                <line x1="12" y1="19.5" x2="12" y2="22"/>
+                <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
+                <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
+                <line x1="2" y1="12" x2="4.5" y2="12"/>
+                <line x1="19.5" y1="12" x2="22" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
+                <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Circular refresh button */}
+          <button id="refreshBtn" className="lg-refresh" title="Refresh">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
         </div>
