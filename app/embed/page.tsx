@@ -150,7 +150,7 @@ const CSS = `
   .footer { font-size: 10px; color: var(--label); text-align: right; margin-top: 4px; font-family: sans-serif; opacity: 0.7; flex-shrink: 0; }
   .toggle { width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid var(--btn-border); background: var(--btn-bg); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; transition: background 0.2s, border-color 0.2s, transform 0.15s; line-height: 1; padding: 0; flex-shrink: 0; }
   .toggle:hover { transform: scale(1.1); opacity: 0.85; }
-  .chart-svg { flex: 1; min-height: 0; width: 100%; display: block; }
+  .chart-svg { flex: 1; min-height: 0; width: 100%; height: 100%; display: block; }
 `;
 
 const INIT_SCRIPT = `
@@ -196,7 +196,7 @@ export default async function EmbedPage({ searchParams }: Props) {
           {title ? <div className="title">{title}</div> : <span/>}
           <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
         </div>
-        <svg className="chart-svg" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet"
+        <svg className="chart-svg" viewBox="0 0 800 320" preserveAspectRatio="none"
           xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
         {!errorMsg && <div className="footer">{data.length} entries</div>}
