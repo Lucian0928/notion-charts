@@ -189,8 +189,8 @@ export default function BuilderPage() {
           });
           const rj = await r.json();
           notionOk = rj.ok === true;
-          if (!notionOk) console.error("[builder] PUT failed:", rj);
-        } catch (e) { console.error("[builder] PUT error:", e); }
+          if (!notionOk) setSaveMsg({ ok: false, text: `✗ Notion PUT failed: ${rj.error || JSON.stringify(rj)}` });
+        } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion PUT error: ${e.message}` }); }
       } else {
         // No Notion page yet — create one and back-fill notionId
         try {
@@ -201,8 +201,8 @@ export default function BuilderPage() {
             const idx = charts.findIndex(c => c.id === editId);
             if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
             notionOk = true;
-          } else { console.error("[builder] POST failed:", rj); }
-        } catch (e) { console.error("[builder] POST error:", e); }
+          } else { setSaveMsg({ ok: false, text: `✗ Notion POST failed: ${rj.error || JSON.stringify(rj)}` }); }
+        } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion POST error: ${e.message}` }); }
       }
     } else {
       const newId    = crypto.randomUUID();
@@ -216,17 +216,19 @@ export default function BuilderPage() {
           const idx = charts.findIndex(c => c.id === newId);
           if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
           notionOk = true;
-        } else { console.error("[builder] POST failed:", rj); }
-      } catch (e) { console.error("[builder] POST error:", e); }
+        } else { setSaveMsg({ ok: false, text: `✗ Notion POST failed: ${rj.error || JSON.stringify(rj)}` }); }
+      } catch (e: any) { setSaveMsg({ ok: false, text: `✗ Notion POST error: ${e.message}` }); }
     }
     } catch (e: any) {
       console.error("[builder] handleSave error:", e);
     }
     setSaving(false);
-    setSaveMsg(
-      notionOk
-        ? { ok: true,  text: "✓ Saved to Notion — embed auto-syncs" }
-        : { ok: false, text: "✗ Notion sync failed — locally saved only" }
+    setSaveMsg(prev =>
+      prev && !prev.ok
+        ? prev  // keep specific error message already set
+        : notionOk
+          ? { ok: true,  text: "✓ Saved to Notion — embed auto-syncs" }
+          : { ok: false, text: "✗ Notion sync failed — locally saved only" }
     );
     setTimeout(() => router.push("/"), 3000);
   }
