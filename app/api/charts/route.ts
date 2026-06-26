@@ -114,7 +114,10 @@ export async function PUT(req: NextRequest) {
     });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    const msg = e.message || String(e);
+    const code = e.status || e.code || "unknown";
+    console.error("[charts PUT] error:", code, msg);
+    return NextResponse.json({ error: `${code}: ${msg}` }, { status: 500 });
   }
 }
 

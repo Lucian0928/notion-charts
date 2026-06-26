@@ -246,6 +246,26 @@ export default function BuilderPage() {
   return (
     <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "#0a0a0f" }}>
 
+      {/* Full-screen save result banner — impossible to miss */}
+      {saveMsg && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)",
+        }}>
+          <div style={{
+            maxWidth: 480, width: "90%", padding: "24px 28px", borderRadius: 16,
+            background: saveMsg.ok ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.18)",
+            border: `1.5px solid ${saveMsg.ok ? "#10b981" : "#ef4444"}`,
+            color: saveMsg.ok ? "#6ee7b7" : "#fca5a5",
+            fontSize: 14, lineHeight: 1.6, fontFamily: "sans-serif",
+            wordBreak: "break-word",
+          }}>
+            {saveMsg.text}
+          </div>
+        </div>
+      )}
+
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
       <aside style={{
         width: 300, minWidth: 300, overflowY: "auto",
@@ -410,16 +430,7 @@ export default function BuilderPage() {
                 }}>
                 {saving ? "Saving..." : editId ? "Update Chart" : "Save Chart"}
               </button>
-              {saveMsg && (
-                <p style={{
-                  fontSize: 12, padding: "8px 10px", borderRadius: 6, margin: 0,
-                  background: saveMsg.ok ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-                  color: saveMsg.ok ? "#10b981" : "#f87171",
-                  border: `1px solid ${saveMsg.ok ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
-                }}>
-                  {saveMsg.text}
-                </p>
-              )}
+              {/* inline banner removed — see fullscreen overlay below */}
             </div>
           )}
 
