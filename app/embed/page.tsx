@@ -94,17 +94,26 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
     ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`).join("")
     : "";
 
-  // X labels rotated -45deg, ~10 evenly spaced
-  const labelCount = 10;
-  const step = Math.max(1, Math.floor((data.length - 1) / (labelCount - 1)));
+  // Dynamic X label count: target ~1 label per 38 logical units
+  const targetLabels = Math.max(6, Math.round(iW / 38));
+  const effectiveCount = Math.min(targetLabels, data.length);
+  const step = Math.max(1, Math.floor((data.length - 1) / (effectiveCount - 1)));
   const indices = new Set<number>();
-  for (let k = 0; k < labelCount; k++) indices.add(Math.min(k * step, data.length - 1));
+  for (let k = 0; k < effectiveCount; k++) indices.add(Math.min(k * step, data.length - 1));
   indices.add(data.length - 1);
+  const sortedIndices = [...indices].sort((a, b) => a - b);
 
-  const xLabels = [...indices].map((i) => {
+  // Vertical grid lines (behind chart)
+  const xGridLines = sortedIndices.map((i) => {
+    const x = sx(i);
+    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" stroke="${color}" stroke-opacity="0.12" stroke-width="1"/>`;
+  }).join("");
+
+  // X label text (drawn after paths so text is on top)
+  const xLabelTexts = sortedIndices.map((i) => {
     const x = sx(i);
     const label = formatDateLabel(String(data[i].x));
-    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" fill="${color}" fill-opacity="0.75" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   // Y ticks every 0.1
@@ -112,12 +121,18 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const yTickValues: number[] = [];
   for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) yTickValues.push(v);
 
-  const yLabels = yTickValues.map((v) => {
+  // Horizontal grid lines (behind chart)
+  const yGridLines = yTickValues.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `
-      <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>
-      <text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="${color}" stroke-opacity="0.12" stroke-width="1"/>`;
+  }).join("");
+
+  // Y label text (drawn after paths)
+  const yLabelTexts = yTickValues.map((v) => {
+    const y = sy(v);
+    if (y < -2 || y > iH + 2) return "";
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" fill="${color}" fill-opacity="0.75" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
   const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
@@ -131,11 +146,13 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
       </linearGradient>
     </defs>
     <g transform="translate(${pad.left},${pad.top})">
-      ${yLabels}
+      ${yGridLines}
+      ${xGridLines}
       <path d="${areaPath}" fill="url(#${gradId})"/>
       <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
       ${dots}
-      ${xLabels}
+      ${xLabelTexts}
+      ${yLabelTexts}
     </g>`;
 }
 
