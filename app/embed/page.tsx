@@ -66,8 +66,8 @@ function formatDateLabel(dateStr: string): string {
 
 function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const W = 800;
-  const H = 280;
-  const pad = { top: 24, right: 16, bottom: 44, left: 44 };
+  const H = 400;
+  const pad = { top: 24, right: 20, bottom: 80, left: 48 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -88,12 +88,14 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
 
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
 
+  // Hollow dots like notion2chart
   const showDots = data.length <= 200;
   const dots = showDots
-    ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="2.5" fill="${color}"/>`).join("")
+    ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`).join("")
     : "";
 
-  const labelCount = 8;
+  // X labels rotated -45deg, ~10 evenly spaced
+  const labelCount = 10;
   const step = Math.max(1, Math.floor((data.length - 1) / (labelCount - 1)));
   const indices = new Set<number>();
   for (let k = 0; k < labelCount; k++) indices.add(Math.min(k * step, data.length - 1));
@@ -101,10 +103,11 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
 
   const xLabels = [...indices].map((i) => {
     const x = sx(i);
-    const anchor = i === 0 ? "start" : i === data.length - 1 ? "end" : "middle";
-    return `<text x="${x.toFixed(1)}" y="${iH + 30}" style="fill:var(--label)" font-size="10.5" text-anchor="${anchor}" font-family="ui-monospace,monospace">${formatDateLabel(String(data[i].x))}</text>`;
+    const label = formatDateLabel(String(data[i].x));
+    return `<text transform="translate(${x.toFixed(1)},${iH + 16}) rotate(-45)" style="fill:var(--label)" font-size="11" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
+  // Y ticks every 0.1
   const tickStep = 0.1;
   const yTickValues: number[] = [];
   for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) yTickValues.push(v);
@@ -114,7 +117,7 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
     if (y < -2 || y > iH + 2) return "";
     return `
       <line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>
-      <text x="-8" y="${(y + 3.5).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+      <text x="-10" y="${(y + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
   const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
@@ -122,15 +125,15 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   return `
     <defs>
       <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.55"/>
-        <stop offset="75%" stop-color="${color}" stop-opacity="0.12"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.65"/>
+        <stop offset="70%" stop-color="${color}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.03"/>
       </linearGradient>
     </defs>
     <g transform="translate(${pad.left},${pad.top})">
       ${yLabels}
       <path d="${areaPath}" fill="url(#${gradId})"/>
-      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
       ${dots}
       ${xLabels}
     </g>`;
@@ -190,7 +193,7 @@ export default async function EmbedPage({ searchParams }: Props) {
       <div className="wrap">
         <button id="themeBtn" className="toggle" title="切換明暗模式">☀️</button>
         {title && <div className="title">{title}</div>}
-        <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg"
+        <svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
         {!errorMsg && <div className="footer">{data.length} entries</div>}
       </div>
