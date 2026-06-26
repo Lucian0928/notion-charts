@@ -106,14 +106,14 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   // Vertical grid lines (behind chart)
   const xGridLines = sortedIndices.map((i) => {
     const x = sx(i);
-    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" stroke="${color}" stroke-opacity="0.12" stroke-width="1"/>`;
+    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
 
   // X label text (drawn after paths so text is on top)
   const xLabelTexts = sortedIndices.map((i) => {
     const x = sx(i);
     const label = formatDateLabel(String(data[i].x));
-    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" fill="${color}" fill-opacity="0.75" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   // Y ticks every 0.1
@@ -125,14 +125,14 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
   const yGridLines = yTickValues.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" stroke="${color}" stroke-opacity="0.12" stroke-width="1"/>`;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
 
   // Y label text (drawn after paths)
   const yLabelTexts = yTickValues.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `<text x="-6" y="${(y + 3).toFixed(1)}" fill="${color}" fill-opacity="0.75" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
   }).join("");
 
   const gradId = `g${color.replace(/[^a-z0-9]/gi, "")}`;
@@ -157,8 +157,8 @@ function renderSvgChart(data: { x: any; y: any }[], color: string) {
 }
 
 const CSS = `
-  :root { --bg: #191919; --grid: rgba(180,130,0,0.2); --label: #6b7280; }
-  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.09); --label: #9ca3af; }
+  :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
+  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.1); --label: #9ca3af; }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); transition: background 0.3s; }
   .wrap { height: 100vh; position: relative; overflow: hidden; background: var(--bg); transition: background 0.3s; }
