@@ -53,7 +53,22 @@ async function findOrCreateDb(): Promise<string | null> {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const singleId = req.nextUrl.searchParams.get("id");
+
+  // Single chart fetch
+  if (singleId) {
+    try {
+      const notion = getNotionClient(process.env.NOTION_CHARTS_TOKEN!);
+      const page = await notion.pages.retrieve({ page_id: singleId }) as any;
+      const name = page.properties?.Name?.title?.[0]?.plain_text || "";
+      const raw = page.properties?.Config?.rich_text?.[0]?.plain_text || "{}";
+      return NextResponse.json({ chart: { id: page.id, name, ...JSON.parse(raw) } });
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+  }
+
   const dbId = await findOrCreateDb();
   if (!dbId) return NextResponse.json({ charts: [], storage: "unavailable" });
 
@@ -95,6 +110,27 @@ export async function POST(req: NextRequest) {
       },
     });
     return NextResponse.json({ id: page.id });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const pageId = req.nextUrl.searchParams.get("id");
+  if (!pageId) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  const { name, ...config } = await req.json();
+
+  try {
+    const notion = getNotionClient(process.env.NOTION_CHARTS_TOKEN!);
+    await notion.pages.update({
+      page_id: pageId,
+      properties: {
+        Name: { title: [{ text: { content: name } }] } as any,
+        Config: { rich_text: [{ text: { content: JSON.stringify(config) } }] } as any,
+      },
+    });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

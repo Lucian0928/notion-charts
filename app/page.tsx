@@ -150,6 +150,17 @@ export default function DashboardPage() {
                     {copied === config.id ? "已複製 ✓" : "複製 Embed URL"}
                   </button>
                   <button
+                    onClick={() => router.push(`/builder?id=${config.id}`)}
+                    className="text-xs px-2 py-1.5 rounded-lg transition-all"
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    編輯
+                  </button>
+                  <button
                     onClick={() => deleteChart(config.id)}
                     className="text-xs px-2 py-1.5 rounded-lg transition-all"
                     style={{

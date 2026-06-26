@@ -16,6 +16,7 @@ const COLORS = ["#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e", "#a855f7"
 export default function BuilderPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
   const [databases, setDatabases] = useState<NotionDatabase[]>([]);
   const [selectedDb, setSelectedDb] = useState<NotionDatabase | null>(null);
   const [properties, setProperties] = useState<NotionProperty[]>([]);
@@ -30,23 +31,61 @@ export default function BuilderPage() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    const t = localStorage.getItem("notion_token");
-    if (!t) { router.push("/setup"); return; }
-    setToken(t);
-    fetchDatabases(t);
+    async function init() {
+      const t = localStorage.getItem("notion_token");
+      if (!t) { router.push("/setup"); return; }
+      setToken(t);
+
+      const dbs = await fetchDatabases(t);
+
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (id) {
+        setEditId(id);
+        await loadEditChart(id, dbs, t);
+      }
+    }
+    init();
   }, []);
 
-  async function fetchDatabases(t: string) {
+  async function fetchDatabases(t: string): Promise<NotionDatabase[]> {
     setLoadingDbs(true);
     try {
       const res = await fetch("/api/notion/databases", {
         headers: { "x-notion-token": t },
       });
       const json = await res.json();
-      setDatabases(json.databases || []);
+      const dbs: NotionDatabase[] = json.databases || [];
+      setDatabases(dbs);
+      return dbs;
     } finally {
       setLoadingDbs(false);
     }
+  }
+
+  async function loadEditChart(id: string, dbs: NotionDatabase[], t: string) {
+    const res = await fetch(`/api/charts?id=${id}`);
+    const json = await res.json();
+    if (!json.chart) return;
+
+    const chart = json.chart;
+    setChartName(chart.name || "");
+    setChartType(chart.chartType || "line");
+    setColor(chart.color || COLORS[0]);
+    setXField(chart.xField || "");
+    setYField(chart.yField || "");
+
+    const db = dbs.find((d) => d.id === chart.databaseId);
+    if (!db) return;
+    setSelectedDb(db);
+
+    const [schemaRes, previewRes] = await Promise.all([
+      fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": t } }),
+      fetch(`/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`, { headers: { "x-notion-token": t } }),
+    ]);
+    const [schemaJson, previewJson] = await Promise.all([schemaRes.json(), previewRes.json()]);
+    setProperties(schemaJson.properties || []);
+    setPreviewData(previewJson.data || []);
+    setStep(3);
   }
 
   async function handleSelectDb(db: NotionDatabase) {
@@ -87,11 +126,19 @@ export default function BuilderPage() {
       color,
       createdAt: Date.now(),
     };
-    await fetch("/api/charts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
+    if (editId) {
+      await fetch(`/api/charts?id=${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+    } else {
+      await fetch("/api/charts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+    }
     router.push("/");
   }
 
@@ -101,7 +148,7 @@ export default function BuilderPage() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button onClick={() => router.push("/")} className="btn-ghost px-3 py-2 text-sm">← 返回</button>
-          <h1 className="text-xl font-semibold text-white">建立新圖表</h1>
+          <h1 className="text-xl font-semibold text-white">{editId ? "編輯圖表" : "建立新圖表"}</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -230,7 +277,7 @@ export default function BuilderPage() {
                   onChange={(e) => setChartName(e.target.value)}
                 />
                 <button className="btn-primary w-full" onClick={handleSave}>
-                  儲存圖表
+                  {editId ? "更新圖表" : "儲存圖表"}
                 </button>
               </div>
             )}
