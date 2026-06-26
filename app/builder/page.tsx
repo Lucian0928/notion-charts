@@ -171,14 +171,32 @@ export default function BuilderPage() {
     const name   = chartName || `${selectedDb!.name} - ${yField}`;
     const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
     const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+
     if (editId) {
-      const updated = existing.map((c) => c.id === editId ? { ...c, ...config } : c);
+      const chart    = existing.find(c => c.id === editId);
+      const notionId = chart?.notionId;
+      const updated  = existing.map(c => c.id === editId ? { ...c, ...config } : c);
       localStorage.setItem("notion_charts", JSON.stringify(updated));
-      fetch(`/api/charts?id=${editId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).catch(() => {});
+      // Await so Notion is up-to-date before embed can be refreshed
+      if (notionId) {
+        await fetch(`/api/charts?id=${notionId}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
+        }).catch(() => {});
+      }
     } else {
-      const newChart: ChartConfig = { id: crypto.randomUUID(), ...config };
+      const newId    = crypto.randomUUID();
+      const newChart: ChartConfig = { id: newId, ...config };
       localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
-      fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) }).catch(() => {});
+      // Save to Notion and back-fill notionId for stable embed URL
+      try {
+        const r  = await fetch("/api/charts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+        const rj = await r.json();
+        if (rj.id) {
+          const charts: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+          const idx = charts.findIndex(c => c.id === newId);
+          if (idx >= 0) { charts[idx].notionId = rj.id; localStorage.setItem("notion_charts", JSON.stringify(charts)); }
+        }
+      } catch {}
     }
     router.push("/");
   }
