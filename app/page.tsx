@@ -18,37 +18,25 @@ export default function DashboardPage() {
       if (!t) { router.push("/setup"); return; }
       setToken(t);
 
-      // Load charts from server (Notion-backed)
-      const res = await fetch("/api/charts");
-      const json = await res.json();
-      let loaded: ChartConfig[] = json.charts || [];
+      // Always read localStorage first as source of truth
+      const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
-      // One-time migration from localStorage
-      if (loaded.length === 0 && json.storage !== "unavailable") {
-        const local: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-        if (local.length > 0) {
-          const migrated: ChartConfig[] = [];
-          for (const c of local) {
-            const r = await fetch("/api/charts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(c),
-            });
-            const rj = await r.json();
-            if (rj.id) migrated.push({ ...c, id: rj.id });
-          }
-          loaded = migrated;
-          localStorage.removeItem("notion_charts");
+      // Try server-side storage
+      try {
+        const res = await fetch("/api/charts");
+        const json = await res.json();
+        if (json.storage !== "unavailable" && Array.isArray(json.charts) && json.charts.length > 0) {
+          // Server has charts — use those and sync to localStorage as backup
+          setCharts(json.charts);
+          localStorage.setItem("notion_charts", JSON.stringify(json.charts));
+          json.charts.forEach((c: ChartConfig) => fetchChartData(c, t));
+          return;
         }
-      }
+      } catch {}
 
-      // Fallback: if API storage unavailable, read localStorage
-      if (json.storage === "unavailable") {
-        loaded = JSON.parse(localStorage.getItem("notion_charts") || "[]");
-      }
-
-      setCharts(loaded);
-      loaded.forEach((c: ChartConfig) => fetchChartData(c, t));
+      // Fall back to localStorage
+      setCharts(local);
+      local.forEach((c: ChartConfig) => fetchChartData(c, t));
     }
     init();
   }, []);
@@ -65,8 +53,10 @@ export default function DashboardPage() {
   }
 
   async function deleteChart(id: string) {
-    setCharts((prev) => prev.filter((c) => c.id !== id));
-    await fetch(`/api/charts?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    const updated = charts.filter((c) => c.id !== id);
+    setCharts(updated);
+    localStorage.setItem("notion_charts", JSON.stringify(updated));
+    fetch(`/api/charts?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
   }
 
   function getEmbedUrl(config: ChartConfig): string {

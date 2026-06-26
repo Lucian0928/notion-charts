@@ -116,8 +116,9 @@ export default function BuilderPage() {
   }
 
   async function handleSave() {
+    const name = chartName || `${selectedDb!.name} - ${yField}`;
     const config = {
-      name: chartName || `${selectedDb!.name} - ${yField}`,
+      name,
       databaseId: selectedDb!.id,
       databaseName: selectedDb!.name,
       chartType,
@@ -126,19 +127,33 @@ export default function BuilderPage() {
       color,
       createdAt: Date.now(),
     };
+
+    const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
+
     if (editId) {
-      await fetch(`/api/charts?id=${editId}`, {
+      // Update in localStorage
+      const updated = existing.map((c) =>
+        c.id === editId ? { ...c, ...config } : c
+      );
+      localStorage.setItem("notion_charts", JSON.stringify(updated));
+      // Try server update (best-effort)
+      fetch(`/api/charts?id=${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
-      });
+      }).catch(() => {});
     } else {
-      await fetch("/api/charts", {
+      const newId = crypto.randomUUID();
+      const newChart: ChartConfig = { id: newId, ...config };
+      localStorage.setItem("notion_charts", JSON.stringify([...existing, newChart]));
+      // Try server save (best-effort)
+      fetch("/api/charts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
-      });
+      }).catch(() => {});
     }
+
     router.push("/");
   }
 
