@@ -252,10 +252,16 @@ const CHART_SCRIPT = `
     return '<g>'+sl+lb+'</g>';
   }
 
+  function dims(){
+    var p=svg.parentElement||svg;
+    var r=p.getBoundingClientRect();
+    return [r.width||p.offsetWidth, r.height||p.offsetHeight];
+  }
+
   var first=true;
   function render(){
-    var W=svg.clientWidth,H=svg.clientHeight;
-    if(W<10||H<10) return;
+    var d=dims(), W=d[0], H=d[1];
+    if(W<10||H<10){ requestAnimationFrame(render); return; }
     var colors=(C.colorMode==='multi'&&C.colors&&C.colors.length)?C.colors:[C.color||'#6366f1'];
     var html=C.error
       ?'<text style="fill:#f87171" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">'+C.error+'</text>'
@@ -267,8 +273,7 @@ const CHART_SCRIPT = `
   }
 
   if(typeof ResizeObserver!=='undefined') new ResizeObserver(render).observe(svg.parentElement||svg);
-  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',render):render();
-  window.addEventListener('load',render);
+  requestAnimationFrame(render);
 })();
 `;
 
