@@ -160,14 +160,49 @@ export async function fetchChartData(
     .filter((d) => d.x !== null && d.y !== null);
 }
 
+export function applyAggregation(
+  rawData: { x: any; y: any }[],
+  aggregation: string,
+): { x: any; y: any }[] {
+  if (!rawData.length) return rawData;
+
+  const orderMap = new Map<string, { x: any; vals: number[] }>();
+  for (const d of rawData) {
+    const key = String(d.x);
+    if (!orderMap.has(key)) orderMap.set(key, { x: d.x, vals: [] });
+    const val = Number(d.y);
+    if (!isNaN(val)) orderMap.get(key)!.vals.push(val);
+  }
+  const groups = [...orderMap.values()].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+
+  switch (aggregation) {
+    case "average":
+      return groups.map(({ x, vals }) => ({ x, y: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0 }));
+    case "count":
+      return groups.map(({ x, vals }) => ({ x, y: vals.length }));
+    case "cumulative": {
+      let running = 0;
+      return groups.map(({ x, vals }) => { running += vals.reduce((s, v) => s + v, 0); return { x, y: running }; });
+    }
+    default: // sum
+      return groups.map(({ x, vals }) => ({ x, y: vals.reduce((s, v) => s + v, 0) }));
+  }
+}
+
 export async function fetchChartDataMulti(
   token: string,
   databaseId: string,
   xField: string,
   yFields: string[],
+  aggregations?: string[],
 ): Promise<Record<string, any>[]> {
   const seriesData = await Promise.all(
-    yFields.map((yf) => fetchChartData(token, databaseId, xField, yf))
+    yFields.map(async (yf, i) => {
+      const raw = await fetchChartData(token, databaseId, xField, yf);
+      return applyAggregation(raw, aggregations?.[i] || "sum");
+    })
   );
   const byX: Record<string, Record<string, any>> = {};
   for (let i = 0; i < yFields.length; i++) {

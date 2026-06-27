@@ -88,6 +88,8 @@ export default function BuilderPage() {
   const [hoveredColorIdx, setHoveredColorIdx] = useState<number | null>(null);
   const [xField,          setXField]          = useState("");
   const [yFields,         setYFields]         = useState<string[]>([""]);
+  const [yAggregations,   setYAggregations]   = useState<string[]>(["sum"]);
+  const [openGearIdx,     setOpenGearIdx]     = useState<number | null>(null);
   const [chartName,       setChartName]       = useState("");
   const [color,           setColor]           = useState(PRESETS[0]);
   const [hexInput,        setHexInput]        = useState(PRESETS[0]);
@@ -147,6 +149,7 @@ export default function BuilderPage() {
     setXField(chart.xField || "");
     const loadedYFields = chart.yFields?.length ? chart.yFields : [chart.yField || ""];
     setYFields(loadedYFields);
+    setYAggregations(chart.yAggregations?.length ? chart.yAggregations : loadedYFields.map(() => "sum"));
     const db = dbs.find(d => d.id === chart.databaseId);
     if (!db) return;
     setSelectedDb(db);
@@ -170,7 +173,7 @@ export default function BuilderPage() {
   }
 
   async function handleSelectDb(db: NotionDatabase) {
-    setSelectedDb(db); setXField(""); setYFields([""]); setPreviewData([]);
+    setSelectedDb(db); setXField(""); setYFields([""]); setYAggregations(["sum"]); setOpenGearIdx(null); setPreviewData([]);
     setDbOpen(false);
     const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token } });
     const json = await res.json();
@@ -183,7 +186,8 @@ export default function BuilderPage() {
     if (!selectedDb || !xField || validYFields.length === 0) return;
     setLoadingPrev(true); setPreviewError(null); setPreviewQueried(true);
     try {
-      const yParam = `yFields=${validYFields.map(encodeURIComponent).join(",")}`;
+      const validAggs = yAggregations.slice(0, validYFields.length).map(a => a || "sum");
+      const yParam = `yFields=${validYFields.map(encodeURIComponent).join(",")}&aggregations=${validAggs.join(",")}`;
       const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&${yParam}`, { headers: { "x-notion-token": token } });
       const json = await res.json();
       if (json.error) { setPreviewError(json.error); setPreviewData([]); }
@@ -201,7 +205,8 @@ export default function BuilderPage() {
     try {
       const validYFields = yFields.filter(Boolean);
       const name   = chartName || `${selectedDb!.name} - ${validYFields[0] || "Chart"}`;
-      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, color, colorMode, colors: multiColors, createdAt: Date.now() };
+      const validAggs = yAggregations.slice(0, validYFields.length).map(a => a || "sum");
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, yAggregations: validAggs, color, colorMode, colors: multiColors, createdAt: Date.now() };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
       if (editId) {
         const updated = existing.map(c => c.id === editId ? { ...c, ...config } : c);
@@ -370,38 +375,68 @@ export default function BuilderPage() {
               <div>
                 <SLabel>Y Axis</SLabel>
                 {yFields.map((yf, i) => (
-                  <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-                    <select
-                      value={yf}
-                      onChange={e => { const next = [...yFields]; next[i] = e.target.value; setYFields(next); }}
-                      style={{ ...inputStyle as any, flex: 1 }}
-                    >
-                      <option value="">Select field</option>
-                      {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
-                    </select>
-                    {i === 0 ? (
-                      <button title="Field settings" style={{
-                        width: 34, height: 34, flexShrink: 0, borderRadius: 8,
-                        border: "1px solid #e5e7eb", background: "#f9fafb",
-                        color: "#9ca3af", cursor: "default",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        <GearIcon />
-                      </button>
-                    ) : (
+                  <div key={i} style={{ marginBottom: 6 }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <select
+                        value={yf}
+                        onChange={e => { const next = [...yFields]; next[i] = e.target.value; setYFields(next); }}
+                        style={{ ...inputStyle as any, flex: 1 }}
+                      >
+                        <option value="">Select field</option>
+                        {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                      </select>
                       <button
-                        title="Remove"
-                        onClick={() => setYFields(yFields.filter((_, j) => j !== i))}
+                        title="Aggregation"
+                        onClick={() => setOpenGearIdx(openGearIdx === i ? null : i)}
                         style={{
                           width: 34, height: 34, flexShrink: 0, borderRadius: 8,
-                          border: "1px solid rgba(239,68,68,0.25)",
-                          background: "rgba(239,68,68,0.05)", color: "#ef4444",
+                          border: openGearIdx === i ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
+                          background: openGearIdx === i ? "rgba(59,130,246,0.08)" : "#f9fafb",
+                          color: openGearIdx === i ? "#3b82f6" : "#9ca3af",
                           cursor: "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}
                       >
-                        <TrashIcon />
+                        <GearIcon />
                       </button>
+                      {i > 0 && (
+                        <button
+                          title="Remove"
+                          onClick={() => {
+                            setYFields(yFields.filter((_, j) => j !== i));
+                            setYAggregations(yAggregations.filter((_, j) => j !== i));
+                            if (openGearIdx === i) setOpenGearIdx(null);
+                          }}
+                          style={{
+                            width: 34, height: 34, flexShrink: 0, borderRadius: 8,
+                            border: "1px solid rgba(239,68,68,0.25)",
+                            background: "rgba(239,68,68,0.05)", color: "#ef4444",
+                            cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </div>
+                    {openGearIdx === i && (
+                      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+                        {(["sum","average","count","cumulative"] as const).map(agg => (
+                          <button
+                            key={agg}
+                            onClick={() => { const next = [...yAggregations]; next[i] = agg; setYAggregations(next); }}
+                            style={{
+                              flex: 1, padding: "5px 0", fontSize: 11, fontWeight: 500,
+                              borderRadius: 6, cursor: "pointer",
+                              border: (yAggregations[i] || "sum") === agg ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
+                              background: (yAggregations[i] || "sum") === agg ? "rgba(59,130,246,0.08)" : "#f9fafb",
+                              color: (yAggregations[i] || "sum") === agg ? "#3b82f6" : "#6b7280",
+                            }}
+                          >
+                            {agg === "cumulative" ? "Cumul." : agg === "average" ? "Avg" : agg.charAt(0).toUpperCase() + agg.slice(1)}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ))}

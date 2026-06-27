@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
-import { fetchChartData, fetchChartDataMulti } from "@/lib/notionData";
+import { fetchChartData, fetchChartDataMulti, applyAggregation } from "@/lib/notionData";
 
 const CSS = `
   :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
@@ -422,6 +422,7 @@ export async function GET(req: NextRequest) {
   let xField     = searchParams.get("xField")     || "";
   let yField     = searchParams.get("yField")     || "";
   let yFields: string[] = [];
+  let yAggregations: string[] = [];
   let color      = searchParams.get("color")      || "#6366f1";
   let chartType: "line" | "bar" | "pie" = "line";
   let colorMode: "single" | "multi"     = "single";
@@ -438,6 +439,7 @@ export async function GET(req: NextRequest) {
         if (chart.xField)     xField     = chart.xField;
         if (chart.yField)     yField     = chart.yField;
         if (chart.yFields?.length) yFields = chart.yFields;
+        if (chart.yAggregations?.length) yAggregations = chart.yAggregations;
         if (chart.color)      color      = chart.color;
         if (chart.chartType)  chartType  = chart.chartType;
         if (chart.colorMode)  colorMode  = chart.colorMode;
@@ -448,7 +450,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const resolvedYFields = yFields.length ? yFields : (yField ? [yField] : []);
+  const resolvedYFields       = yFields.length ? yFields : (yField ? [yField] : []);
+  const resolvedAggregations  = resolvedYFields.map((_, i) => yAggregations[i] || "sum");
 
   let data: any[] = [];
   let errorMsg = "";
@@ -457,11 +460,10 @@ export async function GET(req: NextRequest) {
     const token = process.env.NOTION_CHARTS_TOKEN;
     if (!token) throw new Error("NOTION_CHARTS_TOKEN not set");
     if (resolvedYFields.length > 1) {
-      // Multi-series: {x, [yf1]: val, [yf2]: val, ...}
-      data = await fetchChartDataMulti(token, databaseId, xField, resolvedYFields);
+      data = await fetchChartDataMulti(token, databaseId, xField, resolvedYFields, resolvedAggregations);
     } else {
-      // Single-series: keep classic {x, y} format so existing line/bar/pie functions work unchanged
-      data = await fetchChartData(token, databaseId, xField, resolvedYFields[0]);
+      const raw = await fetchChartData(token, databaseId, xField, resolvedYFields[0]);
+      data = applyAggregation(raw, resolvedAggregations[0]);
     }
   } catch (e: any) {
     errorMsg = e.message;

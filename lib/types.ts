@@ -9,6 +9,7 @@ export interface ChartConfig {
   xField: string;
   yField: string;
   yFields?: string[];
+  yAggregations?: string[];
   color: string;
   colorMode?: "single" | "multi";
   colors?: string[];
