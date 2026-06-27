@@ -523,27 +523,6 @@ export default function BuilderPage() {
           </div>
         )}
 
-        {previewData.length > 0 && (
-          <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "ui-monospace, monospace" }}>
-              <thead>
-                <tr style={{ background: "rgba(255,255,255,0.04)" }}>
-                  <th style={{ padding: "6px 12px", textAlign: "left", color: "#6b7280", fontWeight: 500 }}>X ({xField})</th>
-                  <th style={{ padding: "6px 12px", textAlign: "right", color: "#6b7280", fontWeight: 500 }}>Y ({yField})</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previewData.slice(0, 20).map((d, i) => (
-                  <tr key={i} style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                    <td style={{ padding: "5px 12px", color: "#cbd5e1" }}>{String(d.x)}</td>
-                    <td style={{ padding: "5px 12px", textAlign: "right", color: "#a5b4fc" }}>{String(d.y)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
         <div style={{ flex: 1, minHeight: 0, borderRadius: 16,
           background: "#191919", border: "1px solid rgba(255,255,255,0.07)",
           display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
