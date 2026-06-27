@@ -14,9 +14,9 @@ function smartTicks(maxY: number): number[] {
   const n = rough / mag;
   const step = n < 1.5 ? mag : n < 3.5 ? 2 * mag : n < 7.5 ? 5 * mag : 10 * mag;
   const ticks: number[] = [];
-  for (let v = 0; v <= maxY * 1.001; v = Math.round((v + step) * 1e9) / 1e9) {
+  for (let v = 0; ticks.length <= 20; v = Math.round((v + step) * 1e9) / 1e9) {
     ticks.push(v);
-    if (ticks.length > 20) break;
+    if (v >= maxY) break; // last tick must be >= maxY so no data point is clipped
   }
   return ticks;
 }
@@ -36,7 +36,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
 
   const W = 800;
   const H = 320;
-  const pad = { top: 14, right: 12, bottom: 52, left: 34 };
+  const pad = { top: 14, right: 12, bottom: 52, left: 56 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -91,7 +91,8 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
   const yLabelTexts = yTicks.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+    const label = Number.isInteger(v) ? String(v) : fmtTick(v);
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `
