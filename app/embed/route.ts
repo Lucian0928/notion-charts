@@ -270,7 +270,7 @@ const CHART_SCRIPT = `
       if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
       var idx=Math.max(0,Math.min(n-1,Math.round((vx-state.lp)/state.iW*(n-1))));
       var d=state.s[idx];
-      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  '):fmt(+d.y);
+      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  &nbsp;'):fmt(+d.y);
       tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='bar'){
@@ -278,7 +278,7 @@ const CHART_SCRIPT = `
       var idx=Math.floor((vx-state.lp)/state.slW);
       if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
       var d=state.s[idx];
-      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  '):fmt(+d.y);
+      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  &nbsp;'):fmt(+d.y);
       tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
@@ -364,16 +364,12 @@ const CHART_SCRIPT = `
     var d=dims(), W=d[0], H=d[1];
     if(W<10||H<10){ requestAnimationFrame(render); return; }
     var colors=(C.colorMode==='multi'&&C.colors&&C.colors.length)?C.colors:[C.color||'#6366f1'];
-    var yFs=C.yFields&&C.yFields.length?C.yFields:null;
-    var isMulti=yFs&&yFs.length>1;
-    // For single-series, normalize to {x,y} so existing line/bar/pie functions work
-    var singleData=D;
-    if(!isMulti&&yFs&&yFs.length===1){singleData=D.map(function(p){return{x:p.x,y:p[yFs[0]]};});}
+    var yFs=C.yFields&&C.yFields.length>1?C.yFields:null;
     var html=C.error
       ?'<text style="fill:#f87171" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">'+C.error+'</text>'
-      :C.chartType==='bar'?(isMulti?barMulti(D,yFs,colors,W,H):bar(singleData,colors,W,H))
-      :C.chartType==='pie'?pie(singleData,colors,W,H)
-      :(isMulti?lineMulti(D,yFs,colors,W,H):line(singleData,colors[0],W,H));
+      :C.chartType==='bar'?(yFs?barMulti(D,yFs,colors,W,H):bar(D,colors,W,H))
+      :C.chartType==='pie'?pie(D,colors,W,H)
+      :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     if(!first) svg.style.animation='none';
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
     svg.innerHTML=html;
@@ -461,10 +457,11 @@ export async function GET(req: NextRequest) {
     const token = process.env.NOTION_CHARTS_TOKEN;
     if (!token) throw new Error("NOTION_CHARTS_TOKEN not set");
     if (resolvedYFields.length > 1) {
+      // Multi-series: {x, [yf1]: val, [yf2]: val, ...}
       data = await fetchChartDataMulti(token, databaseId, xField, resolvedYFields);
     } else {
-      const single = await fetchChartData(token, databaseId, xField, resolvedYFields[0]);
-      data = single.map(d => ({ x: d.x, [resolvedYFields[0]]: d.y }));
+      // Single-series: keep classic {x, y} format so existing line/bar/pie functions work unchanged
+      data = await fetchChartData(token, databaseId, xField, resolvedYFields[0]);
     }
   } catch (e: any) {
     errorMsg = e.message;
