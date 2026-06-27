@@ -21,6 +21,12 @@ const PieIcon = () => (
     <path d="M12 2v10l7.4 4.3"/><circle cx="12" cy="12" r="10"/>
   </svg>
 );
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+    style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+);
 
 const CHART_TYPES: { value: ChartType; title: string; Icon: () => React.ReactElement }[] = [
   { value: "line", title: "Line", Icon: LineIcon },
@@ -33,6 +39,13 @@ const PRESETS = [
   "#f43f5e","#f97316","#f59e0b","#eab308",
   "#22c55e","#10b981","#14b8a6","#06b6d4",
   "#22d3ee","#3b82f6","#64748b","#94a3b8",
+];
+
+type BgMode = "white" | "gray" | "dark";
+const BG_OPTIONS: { id: BgMode; label: string; bg: string; dot: string }[] = [
+  { id: "white", label: "White", bg: "#fff",    dot: "#e5e7eb" },
+  { id: "gray",  label: "Gray",  bg: "#f2f2f7", dot: "#d1d5db" },
+  { id: "dark",  label: "Dark",  bg: "#1c1c1e", dot: "#374151" },
 ];
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -53,33 +66,35 @@ function SLabel({ children }: { children: React.ReactNode }) {
 }
 
 export default function BuilderPage() {
-  const router        = useRouter();
-  const colorInputRef = useRef<HTMLInputElement>(null);
+  const router              = useRouter();
+  const colorInputRef       = useRef<HTMLInputElement>(null);
   const multiColorInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [token,          setToken]          = useState("");
-  const [editId,         setEditId]         = useState<string | null>(null);
-  const [databases,      setDatabases]      = useState<NotionDatabase[]>([]);
-  const [selectedDb,     setSelectedDb]     = useState<NotionDatabase | null>(null);
-  const [properties,     setProperties]     = useState<NotionProperty[]>([]);
-  const [chartType,      setChartType]      = useState<ChartType>("line");
-  const [colorMode,      setColorMode]      = useState<"single" | "multi">("single");
-  const [multiColors,    setMultiColors]    = useState<string[]>(DEFAULT_MULTI_COLORS);
-  const [hoveredColorIdx,setHoveredColorIdx]= useState<number | null>(null);
-  const [xField,         setXField]         = useState("");
-  const [yField,         setYField]         = useState("");
-  const [chartName,      setChartName]      = useState("");
-  const [color,          setColor]          = useState(PRESETS[0]);
-  const [hexInput,       setHexInput]       = useState(PRESETS[0]);
-  const [rgb,            setRgb]            = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
-  const [previewData,    setPreviewData]    = useState<{ x: any; y: any }[]>([]);
-  const [previewError,   setPreviewError]   = useState<string | null>(null);
-  const [previewQueried, setPreviewQueried] = useState(false);
-  const [loadingDbs,     setLoadingDbs]     = useState(false);
-  const [loadingPrev,    setLoadingPrev]    = useState(false);
-  const [step,           setStep]           = useState(1);
-  const [saving,         setSaving]         = useState(false);
-  const [saveMsg,        setSaveMsg]        = useState<{ ok: boolean; text: string } | null>(null);
+  const [token,           setToken]           = useState("");
+  const [editId,          setEditId]          = useState<string | null>(null);
+  const [databases,       setDatabases]       = useState<NotionDatabase[]>([]);
+  const [dbOpen,          setDbOpen]          = useState(false);
+  const [selectedDb,      setSelectedDb]      = useState<NotionDatabase | null>(null);
+  const [properties,      setProperties]      = useState<NotionProperty[]>([]);
+  const [chartType,       setChartType]       = useState<ChartType>("line");
+  const [colorMode,       setColorMode]       = useState<"single" | "multi">("single");
+  const [multiColors,     setMultiColors]     = useState<string[]>(DEFAULT_MULTI_COLORS);
+  const [hoveredColorIdx, setHoveredColorIdx] = useState<number | null>(null);
+  const [xField,          setXField]          = useState("");
+  const [yField,          setYField]          = useState("");
+  const [chartName,       setChartName]       = useState("");
+  const [color,           setColor]           = useState(PRESETS[0]);
+  const [hexInput,        setHexInput]        = useState(PRESETS[0]);
+  const [rgb,             setRgb]             = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
+  const [previewData,     setPreviewData]     = useState<{ x: any; y: any }[]>([]);
+  const [previewError,    setPreviewError]    = useState<string | null>(null);
+  const [previewQueried,  setPreviewQueried]  = useState(false);
+  const [loadingDbs,      setLoadingDbs]      = useState(false);
+  const [loadingPrev,     setLoadingPrev]     = useState(false);
+  const [step,            setStep]            = useState(1);
+  const [saving,          setSaving]          = useState(false);
+  const [saveMsg,         setSaveMsg]         = useState<{ ok: boolean; text: string } | null>(null);
+  const [bgMode,          setBgMode]          = useState<BgMode>("white");
 
   function applyColor(hex: string) {
     if (!validHex(hex)) return;
@@ -141,6 +156,7 @@ export default function BuilderPage() {
 
   async function handleSelectDb(db: NotionDatabase) {
     setSelectedDb(db); setXField(""); setYField(""); setPreviewData([]);
+    setDbOpen(false);
     const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token } });
     const json = await res.json();
     setProperties(json.properties || []);
@@ -191,13 +207,18 @@ export default function BuilderPage() {
     setTimeout(() => router.push("/"), 1800);
   }
 
-  // ── Light-theme shared styles ────────────────────────────────────────────────
   const inputStyle: React.CSSProperties = {
     width: "100%", background: "#fff",
     border: "1px solid #e5e7eb", borderRadius: 8,
     padding: "8px 10px", color: "#374151", fontSize: 13, outline: "none",
   };
   const numInputStyle: React.CSSProperties = { ...inputStyle, width: "100%", textAlign: "center", padding: "8px 4px" };
+
+  const activeBg  = BG_OPTIONS.find(o => o.id === bgMode)!;
+  const isDark    = bgMode === "dark";
+  const previewCssVars = isDark
+    ? { "--bg": "#1c1c1e", "--label": "#6b7280", "--grid": "rgba(255,255,255,0.07)" }
+    : { "--bg": activeBg.bg, "--label": "#6b7280", "--grid": "rgba(0,0,0,0.07)" };
 
   return (
     <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "#f2f2f7" }}>
@@ -231,7 +252,7 @@ export default function BuilderPage() {
         display: "flex", flexDirection: "column",
       }}>
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <button onClick={() => router.push("/")} style={{
             background: "none", border: "none", color: "#6b7280",
             cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 0,
@@ -243,14 +264,46 @@ export default function BuilderPage() {
 
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 22, flex: 1 }}>
 
-          {/* 1. Database */}
+          {/* 0. Chart Name — always on top */}
           <div>
-            <SLabel>Database</SLabel>
-            {loadingDbs ? (
-              <p style={{ fontSize: 13, color: "#6b7280" }}>Loading...</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 180, overflowY: "auto" }}>
-                {databases.map(db => (
+            <SLabel>Chart Name</SLabel>
+            <input
+              value={chartName}
+              onChange={e => setChartName(e.target.value)}
+              placeholder={selectedDb && yField ? `${selectedDb.name} - ${yField}` : "My Chart"}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* 1. Database — collapsible */}
+          <div>
+            <button
+              onClick={() => setDbOpen(o => !o)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 8,
+              }}
+            >
+              <SLabel>Database</SLabel>
+              <ChevronIcon open={dbOpen} />
+            </button>
+
+            {/* Always show selected DB name */}
+            {selectedDb && !dbOpen && (
+              <div style={{
+                padding: "8px 12px", borderRadius: 8, fontSize: 13, color: "#1d4ed8", fontWeight: 500,
+                background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)",
+              }}>
+                {selectedDb.name}
+              </div>
+            )}
+
+            {/* Expanded scrollable list */}
+            {dbOpen && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+                {loadingDbs ? (
+                  <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Loading...</p>
+                ) : databases.map(db => (
                   <button key={db.id} onClick={() => handleSelectDb(db)} style={{
                     textAlign: "left", padding: "8px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer",
                     background: selectedDb?.id === db.id ? "rgba(59,130,246,0.08)" : "rgba(0,0,0,0.02)",
@@ -320,8 +373,7 @@ export default function BuilderPage() {
               <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
                 {(["single", "multi"] as const).map(mode => (
                   <button key={mode} onClick={() => setColorMode(mode)} style={{
-                    flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                    cursor: "pointer",
+                    flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer",
                     background: colorMode === mode ? "rgba(59,130,246,0.08)" : "rgba(0,0,0,0.02)",
                     border: `1.5px solid ${colorMode === mode ? "#3b82f6" : "rgba(0,0,0,0.08)"}`,
                     color: colorMode === mode ? "#3b82f6" : "#6b7280",
@@ -407,35 +459,65 @@ export default function BuilderPage() {
             </div>
           )}
 
-          {/* 5. Name & Save */}
+          {/* 5. Save */}
           {step >= 3 && previewData.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <SLabel>Chart Name</SLabel>
-              <input value={chartName} onChange={e => setChartName(e.target.value)}
-                placeholder={`${selectedDb?.name} - ${yField}`}
-                style={inputStyle}
-              />
-              <button onClick={handleSave} disabled={saving} style={{
-                padding: "10px 0", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: "pointer",
-                background: saving ? "#e5e7eb" : "#3b82f6",
-                border: "none", color: saving ? "#9ca3af" : "#fff", marginTop: 4,
-              }}>
-                {saving ? "Saving..." : editId ? "Update Chart" : "Save Chart"}
-              </button>
-            </div>
+            <button onClick={handleSave} disabled={saving} style={{
+              padding: "10px 0", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: "pointer",
+              background: saving ? "#e5e7eb" : "#3b82f6",
+              border: "none", color: saving ? "#9ca3af" : "#fff",
+            }}>
+              {saving ? "Saving..." : editId ? "Update Chart" : "Save Chart"}
+            </button>
           )}
         </div>
       </aside>
 
       {/* ── Preview ─────────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "28px 32px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ color: "#111", fontWeight: 700, fontSize: 16 }}>Preview</span>
-          {previewQueried && (
-            <span style={{ fontSize: 12, color: previewData.length > 0 ? "#6b7280" : "#ef4444" }}>
-              {previewData.length} entries
-            </span>
-          )}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "24px 28px" }}>
+
+        {/* Preview header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: "#111", fontWeight: 700, fontSize: 16 }}>Preview</span>
+            {previewQueried && (
+              <span style={{ fontSize: 12, color: previewData.length > 0 ? "#6b7280" : "#ef4444" }}>
+                {previewData.length} entries
+              </span>
+            )}
+          </div>
+
+          {/* Background switcher */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 4,
+            background: "rgba(255,255,255,0.8)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(0,0,0,0.08)",
+            borderRadius: 10, padding: "4px 5px",
+          }}>
+            {BG_OPTIONS.map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setBgMode(opt.id)}
+                title={opt.label}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer",
+                  background: bgMode === opt.id ? "#fff" : "transparent",
+                  boxShadow: bgMode === opt.id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
+                  fontSize: 12, fontWeight: 500,
+                  color: bgMode === opt.id ? "#111" : "#6b7280",
+                  transition: "all 0.15s",
+                }}
+              >
+                <div style={{
+                  width: 12, height: 12, borderRadius: 3,
+                  background: opt.bg,
+                  border: `1.5px solid ${opt.dot}`,
+                }} />
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {previewError && (
@@ -448,15 +530,14 @@ export default function BuilderPage() {
           </div>
         )}
 
+        {/* Chart canvas */}
         <div style={{
           flex: 1, minHeight: 0, borderRadius: 16,
-          background: "#fff",
+          background: activeBg.bg,
           border: "1px solid rgba(0,0,0,0.07)",
           boxShadow: "0 2px 16px rgba(0,0,0,0.04)",
           display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
-          ["--bg" as any]: "#fff",
-          ["--label" as any]: "#6b7280",
-          ["--grid" as any]: "rgba(0,0,0,0.07)",
+          ...(previewCssVars as any),
         }}>
           {previewData.length > 0 ? (
             <svg
@@ -467,7 +548,7 @@ export default function BuilderPage() {
               dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color, chartType, colorMode === "multi" ? multiColors : undefined) }}
             />
           ) : (
-            <div style={{ textAlign: "center", color: "#9ca3af" }}>
+            <div style={{ textAlign: "center", color: isDark ? "#4b5563" : "#9ca3af" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
               <p style={{ fontSize: 14, margin: 0 }}>
                 {previewQueried ? "No data — try different fields" : "Select database and fields, then click Preview"}
