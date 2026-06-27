@@ -662,26 +662,25 @@ export function renderSvgChart(
   chartType: ChartType = "line",
   colors?: string[],
   yFields?: string[],
-  startingPoints?: (number | "auto")[],
+  startingPoint?: number | "auto",
 ): string {
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
-  const sp0 = startingPoints?.[0];
   if (yFields && yFields.length > 1) {
     const multi = rawData as Record<string, any>[];
-    if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, sp0);
+    if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, startingPoint);
     if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
     if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
     if (chartType === "radar") return renderRadarChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
-    return renderMultiSeriesLineChart(multi, yFields, resolvedColors, sp0);
+    return renderMultiSeriesLineChart(multi, yFields, resolvedColors, startingPoint);
   }
   const single: { x: any; y: any }[] = (yFields && yFields.length === 1)
     ? rawData.map(d => ({ x: d.x, y: d[yFields[0]] }))
     : rawData as { x: any; y: any }[];
-  if (chartType === "bar") return renderBarChart(single, resolvedColors, sp0);
-  if (chartType === "hbar") return renderHBarChart(single, resolvedColors, sp0);
+  if (chartType === "bar") return renderBarChart(single, resolvedColors, startingPoint);
+  if (chartType === "hbar") return renderHBarChart(single, resolvedColors, startingPoint);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
   if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors);
   if (chartType === "radar") return renderRadarChart(single, resolvedColors[0]);
   if (chartType === "kpi") return renderKPIChart(single, color);
-  return renderLineChart(single, resolvedColors[0], sp0);
+  return renderLineChart(single, resolvedColors[0], startingPoint);
 }

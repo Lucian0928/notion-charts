@@ -10,7 +10,7 @@ export interface ChartConfig {
   yField: string;
   yFields?: string[];
   yAggregations?: string[];
-  yStartingPoints?: (number | "auto")[];
+  startingPoint?: number | "auto";
   color: string;
   colorMode?: "single" | "multi";
   colors?: string[];
