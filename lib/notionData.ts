@@ -1,0 +1,161 @@
+import { getNotionClient } from "./notion";
+
+export function extractValue(prop: any): string | number | null {
+  if (!prop) return null;
+  switch (prop.type) {
+    case "title":        return prop.title?.[0]?.plain_text || null;
+    case "rich_text":    return prop.rich_text?.[0]?.plain_text || null;
+    case "number":       return prop.number ?? null;
+    case "date":         return prop.date?.start || null;
+    case "checkbox":     return prop.checkbox ? 1 : 0;
+    case "select":       return prop.select?.name || null;
+    case "multi_select": return prop.multi_select?.map((o: any) => o.name).join(", ") || null;
+    case "status":       return prop.status?.name || null;
+    case "people":       return prop.people?.[0]?.name || null;
+    case "url":          return prop.url || null;
+    case "email":        return prop.email || null;
+    case "phone_number": return prop.phone_number || null;
+    case "created_by":   return prop.created_by?.name || null;
+    case "last_edited_by": return prop.last_edited_by?.name || null;
+    case "relation":     return prop.relation?.length ?? null;
+    case "unique_id":    return prop.unique_id?.number ?? null;
+    case "files":        return prop.files?.length > 0 ? prop.files.length : null;
+    case "formula": {
+      const f = prop.formula;
+      if (f?.type === "number")  return f.number ?? null;
+      if (f?.type === "string")  return f.string || null;
+      if (f?.type === "boolean") return f.boolean ? 1 : 0;
+      if (f?.type === "date")    return f.date?.start || null;
+      return null;
+    }
+    case "rollup": {
+      const r = prop.rollup;
+      if (r?.type === "number") return r.number ?? null;
+      if (r?.type === "date")   return r.date?.start || null;
+      if (r?.type === "array" && Array.isArray(r.array)) {
+        const nums = r.array
+          .map((item: any) => extractValue(item))
+          .filter((v: any) => typeof v === "number");
+        return nums.length > 0 ? nums.reduce((a: number, b: number) => a + b, 0) : null;
+      }
+      return null;
+    }
+    case "created_time":     return prop.created_time || null;
+    case "last_edited_time": return prop.last_edited_time || null;
+    default: return null;
+  }
+}
+
+export async function queryAllPages(notion: any, databaseId: string): Promise<any[]> {
+  const pages: any[] = [];
+  let cursor: string | undefined;
+  do {
+    const res = await notion.databases.query({
+      database_id: databaseId,
+      start_cursor: cursor,
+      page_size: 100,
+    });
+    pages.push(...res.results);
+    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+  return pages;
+}
+
+// Bypasses Notion API's rollup truncation by directly querying the related
+// database and computing the aggregation ourselves over ALL records.
+export async function resolveRollupByDirectQuery(
+  notion: any,
+  databaseId: string,
+  pages: any[],
+  xField: string,
+  yField: string,
+): Promise<{ x: any; y: any }[] | null> {
+  try {
+    const db: any = await notion.databases.retrieve({ database_id: databaseId });
+    const rollupProp = db.properties[yField];
+    if (rollupProp?.type !== "rollup") return null;
+
+    const {
+      relation_property_name: relationFieldName,
+      rollup_property_name:   aggregateFieldName,
+      function: fn,
+    } = rollupProp.rollup;
+
+    const relationProp = db.properties[relationFieldName];
+    if (relationProp?.type !== "relation") return null;
+
+    const relatedDbId: string = relationProp.relation.database_id;
+    // The synced (reverse) relation field in the related DB — only present for dual_property relations
+    const reverseFieldName: string | undefined =
+      relationProp.relation.dual_property?.synced_property_name;
+
+    if (!relatedDbId || !reverseFieldName) return null;
+
+    // Fetch ALL records from the related database with proper pagination
+    const relatedPages = await queryAllPages(notion, relatedDbId);
+
+    // Group aggregate values by parent page ID
+    const grouped = new Map<string, number[]>();
+    for (const rPage of relatedPages) {
+      const backRel = rPage.properties[reverseFieldName];
+      if (backRel?.type !== "relation") continue;
+
+      // A related record can belong to one or more parent pages
+      for (const ref of backRel.relation ?? []) {
+        const parentId: string = ref.id;
+        const val = extractValue(rPage.properties[aggregateFieldName]);
+        if (typeof val !== "number") continue;
+        if (!grouped.has(parentId)) grouped.set(parentId, []);
+        grouped.get(parentId)!.push(val);
+      }
+    }
+
+    const aggregate = (vals: number[]): number | null => {
+      if (vals.length === 0) return 0;
+      switch (fn) {
+        case "sum":                  return vals.reduce((a, b) => a + b, 0);
+        case "average":              return vals.reduce((a, b) => a + b, 0) / vals.length;
+        case "min":                  return Math.min(...vals);
+        case "max":                  return Math.max(...vals);
+        case "count_all":
+        case "count_values":
+        case "count_unique_values":  return vals.length;
+        default:                     return vals.reduce((a, b) => a + b, 0);
+      }
+    };
+
+    return pages
+      .map((page) => ({
+        x: extractValue(page.properties[xField]),
+        y: aggregate(grouped.get(page.id) ?? []),
+      }))
+      .filter((d) => d.x !== null && d.y !== null);
+  } catch {
+    return null;
+  }
+}
+
+// Fetches data for a chart, correctly handling rollup fields
+export async function fetchChartData(
+  token: string,
+  databaseId: string,
+  xField: string,
+  yField: string,
+): Promise<{ x: any; y: any }[]> {
+  const notion = getNotionClient(token);
+  const pages = await queryAllPages(notion, databaseId);
+
+  const yIsRollup = pages.length > 0 && pages[0].properties[yField]?.type === "rollup";
+
+  if (yIsRollup) {
+    const resolved = await resolveRollupByDirectQuery(notion, databaseId, pages, xField, yField);
+    if (resolved) return resolved;
+  }
+
+  return pages
+    .map((page: any) => ({
+      x: extractValue(page.properties[xField]),
+      y: extractValue(page.properties[yField]),
+    }))
+    .filter((d) => d.x !== null && d.y !== null);
+}
