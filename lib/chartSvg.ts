@@ -2,7 +2,7 @@ import type { ChartType } from "./types";
 
 export function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
+  if (isNaN(d.getTime())) return String(dateStr);
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
 }
@@ -227,10 +227,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 500, H = 500;
+  const W = 620, H = 500;
   const cx = W / 2;
   const cy = H / 2;
-  const R = Math.min(cx, cy) - 70;
+  const R = Math.min(cx, cy) - 75;
 
   let slices = "";
   let labels = "";
@@ -267,7 +267,7 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
 }
 
 export function getViewBox(chartType: ChartType): string {
-  return chartType === "pie" ? "0 0 500 500" : "0 0 800 320";
+  return chartType === "pie" ? "0 0 620 500" : "0 0 800 320";
 }
 
 export const DEFAULT_MULTI_COLORS = [

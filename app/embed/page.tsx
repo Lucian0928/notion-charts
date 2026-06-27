@@ -340,17 +340,6 @@ export default async function EmbedPage({ searchParams }: Props) {
           </button>
         </div>
 
-        {!errorMsg && (
-          <div className="footer" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {id && (
-              <span style={{
-                display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-                background: color, border: "1px solid rgba(255,255,255,0.3)", flexShrink: 0,
-              }} title={`color: ${color}`} />
-            )}
-            {data.length} entries
-          </div>
-        )}
 
         {isDebug && (
           <div style={{
