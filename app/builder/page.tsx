@@ -481,44 +481,67 @@ export default function BuilderPage() {
             )}
           </div>
 
-          {/* Dark / Light pill toggle */}
+          {/* Dark / Light pill toggle — exact embed style */}
           <div style={{
+            position: "relative",
             display: "flex", alignItems: "center",
-            background: "#2a2a2e", borderRadius: 999,
-            padding: 4, gap: 2,
+            height: 38, borderRadius: 999, padding: 3,
+            background: "rgba(120,120,128,0.28)",
+            backdropFilter: "blur(28px) saturate(180%)",
+            WebkitBackdropFilter: "blur(28px) saturate(180%)",
+            border: "1px solid rgba(255,255,255,0.22)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.18) inset, 0 -1px 0 rgba(0,0,0,0.12) inset",
           }}>
-            {/* Dark (moon) */}
+            {/* Sliding bubble */}
+            <div style={{
+              position: "absolute", top: 3, left: 3,
+              width: "calc(50% - 3px)", height: "calc(100% - 6px)",
+              borderRadius: 999, pointerEvents: "none",
+              background: "rgba(255,255,255,0.38)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.22), 0 1px 0 rgba(255,255,255,0.7) inset",
+              transform: isDark ? "translateX(0)" : "translateX(100%)",
+              transition: "transform 0.42s cubic-bezier(0.34,1.56,0.64,1)",
+            }} />
+            {/* Moon */}
             <button
               onClick={() => setBgMode("dark")}
               title="Dark"
               style={{
-                width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-                background: isDark ? "rgba(255,255,255,0.15)" : "transparent",
+                position: "relative", zIndex: 1,
+                width: 46, height: 32, borderRadius: 999,
+                border: "none", background: "none", padding: 0,
+                cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "background 0.2s",
+                color: "rgba(255,255,255,0.82)",
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill={isDark ? "#fff" : "#888"} stroke="none">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
               </svg>
             </button>
-            {/* Light (sun) */}
+            {/* Sun */}
             <button
               onClick={() => setBgMode("light")}
               title="Light"
               style={{
-                width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
-                background: !isDark ? "rgba(255,255,255,0.15)" : "transparent",
+                position: "relative", zIndex: 1,
+                width: 46, height: 32, borderRadius: 999,
+                border: "none", background: "none", padding: 0,
+                cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "background 0.2s",
+                color: "rgba(255,255,255,0.82)",
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={!isDark ? "#fff" : "#888"} strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="4.5"/>
+                <line x1="12" y1="2" x2="12" y2="4.5"/>
+                <line x1="12" y1="19.5" x2="12" y2="22"/>
+                <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
+                <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
+                <line x1="2" y1="12" x2="4.5" y2="12"/>
+                <line x1="19.5" y1="12" x2="22" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
+                <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
               </svg>
             </button>
           </div>
