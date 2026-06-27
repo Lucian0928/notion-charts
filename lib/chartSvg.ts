@@ -36,12 +36,20 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
 
   const W = 800;
   const H = 320;
-  const pad = { top: 14, right: 12, bottom: 52, left: 56 };
-  const iW = W - pad.left - pad.right;
-  const iH = H - pad.top - pad.bottom;
 
   if (data.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  // Decide X rotation before setting padding
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
+  const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
+  const approxIW = W - 56 - 12;
+  const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
+  const labelSpacing = approxIW / Math.max(1, approxEffective - 1);
+  const rotateX = maxLabelLen * 5.5 > labelSpacing - 4;
+  const pad = { top: 14, right: 12, bottom: rotateX ? 52 : 24, left: 56 };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
 
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
@@ -78,8 +86,11 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
 
   const xLabelTexts = sortedIndices.map((i) => {
     const x = sx(i);
-    const label = formatDateLabel(String(data[i].x));
-    return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    const label = xLabels[i];
+    if (rotateX) {
+      return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    }
+    return `<text x="${x.toFixed(1)}" y="${(iH + 16).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   const yGridLines = yTicks.map((v) => {
@@ -114,34 +125,40 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
 
   const W = 800;
   const H = 320;
-  const pad = { top: 14, right: 12, bottom: 52, left: 50 };
-  const iW = W - pad.left - pad.right;
-  const iH = H - pad.top - pad.bottom;
 
   if (data.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
+  const n = data.length;
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
+  const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
+  // Decide rotation before setting padding so bottom space is accurate
+  const approxSlotW = (W - 56 - 12) / n;
+  const rotateX = maxLabelLen * 5.5 > approxSlotW - 4;
+  const pad = { top: 14, right: 12, bottom: rotateX ? 52 : 24, left: 56 };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
+
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
-  const yMax = maxY || 1;
-  const n = data.length;
+  const yTicks = smartTicks(maxY);
+  const yRange = yTicks[yTicks.length - 1] || 1;
 
   const slotW = iW / n;
   const barPad = Math.min(slotW * 0.2, 10);
   const barW = Math.max(1, slotW - barPad * 2);
   const rx = Math.min(3, barW * 0.25);
 
-  const sy = (v: number) => iH - (v / yMax) * iH;
+  const sy = (v: number) => iH - (v / yRange) * iH;
 
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const bx = i * slotW + barPad;
-    const bh = Math.max(1, (Number(d.y) / yMax) * iH);
+    const bh = Math.max(1, (Number(d.y) / yRange) * iH);
     const by = iH - bh;
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
   }).join("");
 
-  const yTicks = smartTicks(yMax);
   const yGridLines = yTicks.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
@@ -150,7 +167,8 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
   const yLabelTexts = yTicks.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+    const label = Number.isInteger(v) ? String(v) : fmtTick(v);
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   const maxLabels = Math.max(2, Math.floor(iW / 55));
@@ -158,8 +176,11 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
   const xLabelTexts = data.map((d, i) => {
     if (i % step !== 0 && i !== n - 1) return "";
     const cx = i * slotW + slotW / 2;
-    const label = formatDateLabel(String(d.x));
-    return `<text transform="translate(${cx.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    const label = xLabels[i];
+    if (rotateX) {
+      return `<text transform="translate(${cx.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+    }
+    return `<text x="${cx.toFixed(1)}" y="${(iH + 16).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `
