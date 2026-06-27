@@ -88,8 +88,6 @@ export default function BuilderPage() {
   const [previewData,  setPreviewData]  = useState<{ x: any; y: any }[]>([]);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewQueried, setPreviewQueried] = useState(false);
-  const [debugData,    setDebugData]    = useState<any[] | null>(null);
-  const [loadingDebug, setLoadingDebug] = useState(false);
   const [loadingDbs,   setLoadingDbs]   = useState(false);
   const [loadingPrev,  setLoadingPrev]  = useState(false);
   const [step,         setStep]         = useState(1);
@@ -186,20 +184,6 @@ export default function BuilderPage() {
     } catch (e: any) {
       setPreviewError(e.message);
     } finally { setLoadingPrev(false); }
-  }
-
-  async function handleDebug() {
-    if (!selectedDb || !yField) return;
-    setLoadingDebug(true);
-    setDebugData(null);
-    try {
-      const res = await fetch(
-        `/api/notion/debug?databaseId=${selectedDb.id}&field=${encodeURIComponent(yField)}`,
-        { headers: { "x-notion-token": token } }
-      );
-      const json = await res.json();
-      setDebugData(json.sample || []);
-    } finally { setLoadingDebug(false); }
   }
 
   async function handleSave() {
@@ -522,32 +506,12 @@ export default function BuilderPage() {
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "28px 32px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span style={{ color: "white", fontWeight: 600, fontSize: 15 }}>Preview</span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {yField && selectedDb && (
-              <button onClick={handleDebug} disabled={loadingDebug}
-                style={{
-                  fontSize: 11, padding: "4px 10px", borderRadius: 6, cursor: "pointer",
-                  background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)",
-                  color: "#fcd34d", opacity: loadingDebug ? 0.5 : 1,
-                }}>
-                {loadingDebug ? "..." : "Debug raw"}
-              </button>
-            )}
-            {previewQueried && (
-              <span style={{ fontSize: 12, color: previewData.length > 0 ? "var(--muted, #6b7280)" : "#f87171" }}>
-                {previewData.length} entries
-              </span>
-            )}
-          </div>
+          {previewQueried && (
+            <span style={{ fontSize: 12, color: previewData.length > 0 ? "var(--muted, #6b7280)" : "#f87171" }}>
+              {previewData.length} entries
+            </span>
+          )}
         </div>
-
-        {debugData && (
-          <div style={{ marginBottom: 12, borderRadius: 10, border: "1px solid rgba(245,158,11,0.2)", overflow: "auto", maxHeight: 240, background: "rgba(0,0,0,0.3)" }}>
-            <pre style={{ margin: 0, padding: "10px 14px", fontSize: 11, color: "#fcd34d", fontFamily: "ui-monospace, monospace", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-              {JSON.stringify(debugData, null, 2)}
-            </pre>
-          </div>
-        )}
 
         {previewError && (
           <div style={{
