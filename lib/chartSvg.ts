@@ -45,8 +45,8 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
 
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
-  const yMax = Math.ceil(maxY * 10) / 10;
-  const yRange = yMax || 1;
+  const yTicks = smartTicks(maxY);
+  const yRange = yTicks[yTicks.length - 1] || 1;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - (v / yRange) * iH;
@@ -82,20 +82,16 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
     return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  const tickStep = 0.1;
-  const yTickValues: number[] = [];
-  for (let v = 0; v <= yMax + 0.001; v = Math.round((v + tickStep) * 100) / 100) yTickValues.push(v);
-
-  const yGridLines = yTickValues.map((v) => {
+  const yGridLines = yTicks.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
     return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
 
-  const yLabelTexts = yTickValues.map((v) => {
+  const yLabelTexts = yTicks.map((v) => {
     const y = sy(v);
     if (y < -2 || y > iH + 2) return "";
-    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${v.toFixed(1)}</text>`;
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
 
   return `
