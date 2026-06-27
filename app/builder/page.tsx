@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { renderSvgChart, DEFAULT_MULTI_COLORS } from "@/lib/chartSvg";
+import { renderSvgChart, getViewBox, DEFAULT_MULTI_COLORS } from "@/lib/chartSvg";
 import { ChartConfig, ChartType, NotionDatabase, NotionProperty } from "@/lib/types";
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
@@ -532,7 +532,7 @@ export default function BuilderPage() {
         }}>
           {previewData.length > 0 ? (
             <svg
-              viewBox="0 0 800 320"
+              viewBox={getViewBox(chartType)}
               preserveAspectRatio="xMidYMid meet"
               style={{ width: "100%", height: "100%", display: "block" }}
               xmlns="http://www.w3.org/2000/svg"

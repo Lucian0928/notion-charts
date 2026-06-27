@@ -188,10 +188,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 800, H = 320;
+  const W = 500, H = 500;
   const cx = W / 2;
   const cy = H / 2;
-  const R = Math.min(cx, cy) - 50;
+  const R = Math.min(cx, cy) - 70;
 
   let slices = "";
   let labels = "";
@@ -211,20 +211,24 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
 
     slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${c}" style="stroke:var(--bg);stroke-width:2;"/>`;
 
-    if (sweep > 0.12) {
+    if (sweep > 0.1) {
       const mid = angle + sweep / 2;
-      const lx = cx + (R + 20) * Math.cos(mid);
-      const ly = cy + (R + 20) * Math.sin(mid);
+      const lx = cx + (R + 26) * Math.cos(mid);
+      const ly = cy + (R + 26) * Math.sin(mid);
       const pct = ((value / total) * 100).toFixed(0) + "%";
-      const anchor = lx > cx + 5 ? "start" : lx < cx - 5 ? "end" : "middle";
-      const label = name.length > 14 ? name.slice(0, 13) + "…" : name;
-      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="9" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
+      const anchor = lx > cx + 8 ? "start" : lx < cx - 8 ? "end" : "middle";
+      const label = name.length > 16 ? name.slice(0, 15) + "…" : name;
+      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
     }
 
     angle = endAngle;
   }
 
   return `<g>${slices}${labels}</g>`;
+}
+
+export function getViewBox(chartType: ChartType): string {
+  return chartType === "pie" ? "0 0 500 500" : "0 0 800 320";
 }
 
 export const DEFAULT_MULTI_COLORS = [

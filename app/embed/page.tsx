@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { kv } from "@vercel/kv";
 import { getNotionClient } from "@/lib/notion";
-import { renderSvgChart } from "@/lib/chartSvg";
+import { renderSvgChart, getViewBox } from "@/lib/chartSvg";
 
 interface Props {
   searchParams: Promise<{
@@ -369,7 +369,7 @@ export default async function EmbedPage({ searchParams }: Props) {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <script dangerouslySetInnerHTML={{ __html: INIT_SCRIPT }} />
       <div className="wrap">
-        <svg className="chart-svg" viewBox="0 0 800 320" preserveAspectRatio="none"
+        <svg className="chart-svg" viewBox={getViewBox(chartType)} preserveAspectRatio={chartType === "pie" ? "xMidYMid meet" : "none"}
           xmlns="http://www.w3.org/2000/svg"
           dangerouslySetInnerHTML={{ __html: svgContent }} />
 
