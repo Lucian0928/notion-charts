@@ -453,7 +453,10 @@ export function renderSvgChart(
     if (chartType === "pie") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
     return renderMultiSeriesLineChart(multi, yFields, resolvedColors);
   }
-  const single = rawData as { x: any; y: any }[];
+  // Normalize single-series data: map {x, [field]: val} → {x, y: val}
+  const single: { x: any; y: any }[] = (yFields && yFields.length === 1)
+    ? rawData.map(d => ({ x: d.x, y: d[yFields[0]] }))
+    : rawData as { x: any; y: any }[];
   if (chartType === "bar") return renderBarChart(single, resolvedColors);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
   return renderLineChart(single, resolvedColors[0]);
