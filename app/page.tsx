@@ -48,6 +48,57 @@ const DotsIcon = () => (
   </svg>
 );
 
+// ── Modal chart type icons (32px) ─────────────────────────────────────────────
+const MBarIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="4" height="10" rx="0.6"/><rect x="10" y="6" width="4" height="15" rx="0.6"/><rect x="17" y="3" width="4" height="18" rx="0.6"/>
+  </svg>
+);
+const MLineIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3,17 8,9 13,13 21,4"/><line x1="3" y1="21" x2="21" y2="21"/>
+  </svg>
+);
+const MPieIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v10l7.4 4.3"/><circle cx="12" cy="12" r="10"/>
+  </svg>
+);
+const MHBarIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="10" height="4" rx="0.6"/><rect x="3" y="10" width="16" height="4" rx="0.6"/><rect x="3" y="16" width="7" height="4" rx="0.6"/>
+  </svg>
+);
+const MDoughnutIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="7"/>
+  </svg>
+);
+const MRadarIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12,2 20,7.5 20,16.5 12,22 4,16.5 4,7.5"/>
+    <line x1="12" y1="2" x2="12" y2="12"/><line x1="20" y1="7.5" x2="12" y2="12"/>
+    <line x1="20" y1="16.5" x2="12" y2="12"/><line x1="12" y1="22" x2="12" y2="12"/>
+    <line x1="4" y1="16.5" x2="12" y2="12"/><line x1="4" y1="7.5" x2="12" y2="12"/>
+  </svg>
+);
+const MKPIIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="4"/>
+    <text x="12" y="17" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui,sans-serif">9</text>
+  </svg>
+);
+
+const CHART_TYPES = [
+  { id: "bar",      label: "Bar Chart",            Icon: MBarIcon,      ready: true  },
+  { id: "line",     label: "Line Chart",            Icon: MLineIcon,     ready: true  },
+  { id: "pie",      label: "Pie Chart",             Icon: MPieIcon,      ready: true  },
+  { id: "hbar",     label: "Horizontal bar",        Icon: MHBarIcon,     ready: false },
+  { id: "doughnut", label: "Doughnut",              Icon: MDoughnutIcon, ready: false },
+  { id: "radar",    label: "Radar Chart",           Icon: MRadarIcon,    ready: false },
+  { id: "kpi",      label: "KPI",                   Icon: MKPIIcon,      ready: false },
+];
+
 const LineChartIcon = ({ color }: { color: string }) => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3,17 8,9 13,13 21,4"/>
@@ -94,6 +145,8 @@ export default function DashboardPage() {
   const [copied,    setCopied]    = useState<string | null>(null);
   const [menuOpen,  setMenuOpen]  = useState<string | null>(null);
   const [search,    setSearch]    = useState("");
+  const [showTypeModal,  setShowTypeModal]  = useState(false);
+  const [selectedType,   setSelectedType]   = useState("bar");
 
   const q = search.trim().toLowerCase();
   const filtered = q
@@ -271,7 +324,7 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <button className="btn-primary" style={{ flexShrink: 0, marginLeft: "auto" }} onClick={() => router.push("/builder")}>
+          <button className="btn-primary" style={{ flexShrink: 0, marginLeft: "auto" }} onClick={() => setShowTypeModal(true)}>
             <PlusIcon /> New Chart
           </button>
         </div>
@@ -284,7 +337,7 @@ export default function DashboardPage() {
             <p style={{ fontSize: 13, color: "var(--muted)", margin: "0 0 22px" }}>
               Create your first chart from a Notion database
             </p>
-            <button className="btn-primary" onClick={() => router.push("/builder")}>
+            <button className="btn-primary" onClick={() => setShowTypeModal(true)}>
               <PlusIcon /> Create Chart
             </button>
           </div>
@@ -434,6 +487,102 @@ export default function DashboardPage() {
       </main>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* ── New Chart type modal ────────────────────────────────────────────── */}
+      {showTypeModal && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.28)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowTypeModal(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 18, width: 720, maxWidth: "92vw",
+              padding: "28px 32px 28px", boxShadow: "0 24px 64px rgba(0,0,0,0.16)",
+              position: "relative",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111" }}>New Chart</h2>
+              <button
+                onClick={() => setShowTypeModal(false)}
+                style={{
+                  width: 34, height: 34, borderRadius: 9, border: "1.5px solid #e5e7eb",
+                  background: "none", cursor: "pointer", color: "#374151",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+                }}
+              >✕</button>
+            </div>
+
+            {/* Step indicator */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 0, marginBottom: 32 }}>
+              {[{ n: 1, label: "Chart type" }, { n: 2, label: "Notion database" }, { n: 3, label: "Chart settings" }].map((step, i) => (
+                <div key={step.n} style={{ display: "flex", alignItems: "flex-start" }}>
+                  <div style={{ textAlign: "center", width: 90 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: "50%", margin: "0 auto 6px",
+                      background: step.n === 1 ? "#3b82f6" : "#e5e7eb",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 14, fontWeight: 700,
+                      color: step.n === 1 ? "#fff" : "#9ca3af",
+                    }}>{step.n}</div>
+                    <span style={{ fontSize: 12, color: step.n === 1 ? "#111" : "#9ca3af", fontWeight: step.n === 1 ? 600 : 400 }}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {i < 2 && (
+                    <div style={{ flex: 1, height: 1.5, background: "#e5e7eb", marginTop: 17, minWidth: 48 }} />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Chart type grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 28 }}>
+              {CHART_TYPES.map(({ id, label, Icon }) => {
+                const active = selectedType === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setSelectedType(id)}
+                    style={{
+                      padding: "22px 12px 18px",
+                      background: active ? "rgba(59,130,246,0.07)" : "#f3f4f6",
+                      border: `2px solid ${active ? "#3b82f6" : "transparent"}`,
+                      borderRadius: 12, cursor: "pointer",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+                      transition: "border-color 0.15s, background 0.15s",
+                      color: active ? "#3b82f6" : "#374151",
+                    }}
+                  >
+                    <Icon />
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowTypeModal(false);
+                  router.push(`/builder?chartType=${selectedType}`);
+                }}
+                style={{
+                  padding: "10px 28px", borderRadius: 10,
+                  background: "#3b82f6", color: "#fff", border: "none",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  boxShadow: "0 2px 12px rgba(59,130,246,0.3)",
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
