@@ -122,8 +122,8 @@ const TOGGLE_SCRIPT = `
 // Client-side chart rendering — uses actual pixel dimensions so labels never scale
 const CHART_SCRIPT = `
 (function(){
-  var D, C;
-  try { D=JSON.parse(document.getElementById('nc-d').textContent); C=JSON.parse(document.getElementById('nc-c').textContent); } catch(e){ return; }
+  var D=window.__nc_d, C=window.__nc_c;
+  if(!D||!C) return;
   var svg=document.querySelector('.chart-svg');
   if(!svg) return;
 
@@ -255,7 +255,7 @@ const CHART_SCRIPT = `
   function dims(){
     var p=svg.parentElement||svg;
     var r=p.getBoundingClientRect();
-    return [r.width||p.offsetWidth, r.height||p.offsetHeight];
+    return [r.width||p.offsetWidth||window.innerWidth, r.height||p.offsetHeight||window.innerHeight];
   }
 
   var first=true;
@@ -321,14 +321,16 @@ export default async function EmbedPage({ searchParams }: Props) {
     errorMsg = e.message;
   }
 
-  const cfgJson = JSON.stringify({
+  // Escape </script> sequences so they can't break out of inline script tags
+  const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, "<\\/");
+
+  const DATA_SCRIPT = `window.__nc_d=${safe(data)};window.__nc_c=${safe({
     chartType,
     colorMode,
     color,
     colors: colors ?? [],
     error: errorMsg || null,
-  });
-  const dataJson = JSON.stringify(data);
+  })};`;
 
   return (
     <>
@@ -383,9 +385,7 @@ export default async function EmbedPage({ searchParams }: Props) {
         )}
       </div>
 
-      {/* Data injected as JSON — read by client script */}
-      <script id="nc-d" type="application/json" dangerouslySetInnerHTML={{ __html: dataJson }} />
-      <script id="nc-c" type="application/json" dangerouslySetInnerHTML={{ __html: cfgJson }} />
+      <script dangerouslySetInnerHTML={{ __html: DATA_SCRIPT }} />
       <script dangerouslySetInnerHTML={{ __html: TOGGLE_SCRIPT }} />
       <script dangerouslySetInnerHTML={{ __html: CHART_SCRIPT }} />
     </>
