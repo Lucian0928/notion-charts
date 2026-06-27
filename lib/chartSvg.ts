@@ -65,13 +65,16 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   // Decide X rotation before setting padding
+  const lp = 56, rp = 12, F = 8.5;
   const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
-  const approxIW = W - 56 - 12;
+  const approxIW = W - lp - rp;
   const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
   const labelSpacing = approxIW / Math.max(1, approxEffective - 1);
-  const rotateX = maxLabelLen * 5.5 > labelSpacing - 4;
-  const pad = { top: 14, right: 12, bottom: rotateX ? 52 : 24, left: 56 };
+  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing - 4;
+  // Compute safe font size for rotated labels so leftmost label doesn't clip at x=0
+  const xF = rotateX ? Math.max(5, Math.min(F, Math.floor(lp * 1.414 / (maxLabelLen * 0.65 + 1)))) : F;
+  const pad = { top: 14, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -110,9 +113,9 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
     const x = sx(i);
     const label = xLabels[i];
     if (rotateX) {
-      return `<text transform="translate(${x.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+      return `<text transform="translate(${x.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    return `<text x="${x.toFixed(1)}" y="${(iH + 16).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   const yGridLines = yTicks.map((v) => {
@@ -152,12 +155,14 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const n = data.length;
+  const lp2 = 56, rp2 = 12, F2 = 8.5;
   const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
   // Decide rotation before setting padding so bottom space is accurate
-  const approxSlotW = (W - 56 - 12) / n;
-  const rotateX = maxLabelLen * 5.5 > approxSlotW - 4;
-  const pad = { top: 14, right: 12, bottom: rotateX ? 52 : 24, left: 56 };
+  const approxSlotW = (W - lp2 - rp2) / n;
+  const rotateX = maxLabelLen * (F2 * 0.6) > approxSlotW - 4;
+  const xF2 = rotateX ? Math.max(5, Math.min(F2, Math.floor(lp2 * 1.414 / (maxLabelLen * 0.65 + 1)))) : F2;
+  const pad = { top: 14, right: rp2, bottom: rotateX ? Math.ceil(maxLabelLen * xF2 * 0.65 * 0.707) + 8 : F2 + 14, left: lp2 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -200,9 +205,9 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
     const cx = i * slotW + slotW / 2;
     const label = xLabels[i];
     if (rotateX) {
-      return `<text transform="translate(${cx.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+      return `<text transform="translate(${cx.toFixed(1)},${iH + xF2}) rotate(-45)" style="fill:var(--label)" font-size="${xF2}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    return `<text x="${cx.toFixed(1)}" y="${(iH + 16).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `

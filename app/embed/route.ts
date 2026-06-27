@@ -155,7 +155,11 @@ const CHART_SCRIPT = `
     var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var rot=mll*(F*0.6)>(W-lp-rp)/Math.max(s.length,1)-4;
-    var bp=rot?Math.ceil(mll*F*0.6*0.707)+8:F+14;
+    // When rotated, leftmost label extends (mll*xF*0.65+xF)/√2 to the left of its anchor.
+    // Anchor of first point is at x=0 (chart-local), so that distance must be ≤ lp.
+    var xF=F;
+    if(rot){ var xFmax=Math.floor(lp*1.414/(mll*0.65+1)); xF=Math.max(6,Math.min(F,xFmax)); }
+    var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
     var iW=W-lp-rp, iH=H-tp-bp;
     if(iW<20||iH<20) return '';
     var ys=s.map(function(d){return +d.y;}), maxY=Math.max.apply(null,ys)||1;
@@ -181,7 +185,7 @@ const CHART_SCRIPT = `
     idxs.forEach(function(i){
       var x=sx(i).toFixed(1);
       xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
-      if(rot) xl+='<text transform="translate('+x+','+(iH+F)+') rotate(-45)" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
+      if(rot) xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
       else xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
     var pts=s.map(function(d,i){return[sx(i),sy(+d.y)];});
@@ -198,7 +202,9 @@ const CHART_SCRIPT = `
     var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var rot=mll*(F*0.6)>(W-lp-rp)/n-4;
-    var bp=rot?Math.ceil(mll*F*0.6*0.707)+8:F+14;
+    var xF=F;
+    if(rot){ var xFmax=Math.floor(lp*1.414/(mll*0.65+1)); xF=Math.max(6,Math.min(F,xFmax)); }
+    var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
     var iW=W-lp-rp, iH=H-tp-bp;
     if(iW<20||iH<20) return '';
     var ys=s.map(function(d){return+d.y;}), maxY=Math.max.apply(null,ys)||1;
@@ -222,7 +228,7 @@ const CHART_SCRIPT = `
     s.forEach(function(d,i){
       if(i%stp!==0&&i!==n-1) return;
       var cx=(i*slW+slW/2).toFixed(1);
-      if(rot) xl+='<text transform="translate('+cx+','+(iH+F)+') rotate(-45)" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
+      if(rot) xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
       else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
     state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
