@@ -7,6 +7,29 @@ export function formatDateLabel(dateStr: string): string {
   return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
 }
 
+// Catmull-Rom spline → cubic bezier SVG path
+function smoothLinePath(pts: [number, number][]): string {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  if (pts.length === 2)
+    return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)} L${pts[1][0].toFixed(1)},${pts[1][1].toFixed(1)}`;
+
+  const n = pts.length;
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(n - 1, i + 2)];
+    const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 function smartTicks(maxY: number): number[] {
   if (maxY === 0) return [0];
   const rough = maxY / 5;
@@ -59,10 +82,8 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - (v / yRange) * iH;
 
-  const linePath = data
-    .map((d, i) => `${i === 0 ? "M" : "L"}${sx(i).toFixed(1)},${sy(Number(d.y)).toFixed(1)}`)
-    .join(" ");
-
+  const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d.y))]);
+  const linePath = smoothLinePath(pts);
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
 
   const showDots = data.length <= 200;
