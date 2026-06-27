@@ -93,6 +93,15 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<Record<string, { x: any; y: any }[]>>({});
   const [copied,    setCopied]    = useState<string | null>(null);
   const [menuOpen,  setMenuOpen]  = useState<string | null>(null);
+  const [search,    setSearch]    = useState("");
+
+  const q = search.trim().toLowerCase();
+  const filtered = q
+    ? charts.filter(c =>
+        [c.name, c.databaseName, c.xField, c.yField]
+          .some(s => s?.toLowerCase().includes(q))
+      )
+    : charts;
 
   async function fetchChartData(config: ChartConfig, t: string) {
     try {
@@ -211,21 +220,63 @@ export default function DashboardPage() {
       <main style={{ flex: 1, overflow: "auto", padding: "32px 32px" }}>
 
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+          <div style={{ flexShrink: 0 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0, letterSpacing: "-0.02em" }}>
               My Charts
             </h1>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "3px 0 0" }}>
-              {charts.length} chart{charts.length !== 1 ? "s" : ""}
+              {q ? `${filtered.length} of ${charts.length}` : `${charts.length} chart${charts.length !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <button className="btn-primary" onClick={() => router.push("/builder")}>
+
+          {/* Search bar */}
+          <div style={{ flex: 1, position: "relative", maxWidth: 360 }}>
+            <span style={{
+              position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)",
+              color: "var(--muted)", pointerEvents: "none", display: "flex",
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search charts..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{
+                width: "100%", padding: "8px 12px 8px 32px",
+                background: "rgba(255,255,255,0.62)",
+                backdropFilter: "blur(16px) saturate(180%)",
+                WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.88)",
+                boxShadow: "0 1px 6px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,1) inset",
+                borderRadius: 10, fontSize: 13, color: "#111", outline: "none",
+              }}
+              onFocus={e => { e.currentTarget.style.border = "1px solid rgba(0,0,0,0.15)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,0,0,0.05), 0 1px 0 rgba(255,255,255,1) inset"; }}
+              onBlur={e => { e.currentTarget.style.border = "1px solid rgba(255,255,255,0.88)"; e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,1) inset"; }}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                style={{
+                  position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                  width: 18, height: 18, borderRadius: "50%", border: "none",
+                  background: "rgba(0,0,0,0.1)", color: "#6b7280",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", fontSize: 11, lineHeight: 1,
+                }}
+              >✕</button>
+            )}
+          </div>
+
+          <button className="btn-primary" style={{ flexShrink: 0, marginLeft: "auto" }} onClick={() => router.push("/builder")}>
             <PlusIcon /> New Chart
           </button>
         </div>
 
-        {/* Empty state */}
+        {/* Empty state — no charts at all */}
         {charts.length === 0 && (
           <div className="glass" style={{ padding: "64px 32px", textAlign: "center" }}>
             <div style={{ fontSize: 44, marginBottom: 14 }}>📈</div>
@@ -244,9 +295,18 @@ export default function DashboardPage() {
           <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(null)} />
         )}
 
+        {/* Empty state — search no results */}
+        {charts.length > 0 && filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "64px 32px", color: "var(--muted)" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+            <p style={{ fontSize: 14, fontWeight: 500, color: "#374151", margin: "0 0 6px" }}>No results for &ldquo;{search}&rdquo;</p>
+            <p style={{ fontSize: 13, margin: 0 }}>Try searching by chart name or database name</p>
+          </div>
+        )}
+
         {/* Grid */}
         <div className="chart-grid">
-          {charts.map((config) => {
+          {filtered.map((config) => {
             const data = chartData[config.id];
             const cardColor = config.color || "#6366f1";
             const isMenuOpen = menuOpen === config.id;
