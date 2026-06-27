@@ -1,3 +1,5 @@
+import type { ChartType } from "./types";
+
 export function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
@@ -5,8 +7,29 @@ export function formatDateLabel(dateStr: string): string {
   return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
 }
 
-export function renderSvgChart(rawData: { x: any; y: any }[], color: string): string {
-  // Always sort ascending by X so oldest→newest left→right
+function smartTicks(maxY: number): number[] {
+  if (maxY === 0) return [0];
+  const rough = maxY / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const n = rough / mag;
+  const step = n < 1.5 ? mag : n < 3.5 ? 2 * mag : n < 7.5 ? 5 * mag : 10 * mag;
+  const ticks: number[] = [];
+  for (let v = 0; v <= maxY * 1.001; v = Math.round((v + step) * 1e9) / 1e9) {
+    ticks.push(v);
+    if (ticks.length > 20) break;
+  }
+  return ticks;
+}
+
+function fmtTick(v: number): string {
+  if (v >= 1000000) return (v / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  if (Number.isInteger(v)) return String(v);
+  const r = Math.round(v * 1000) / 1000;
+  return r % 1 === 0 ? String(r) : r.toFixed(r < 0.1 ? 3 : r < 1 ? 2 : 1);
+}
+
+function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
   );
@@ -85,4 +108,137 @@ export function renderSvgChart(rawData: { x: any; y: any }[], color: string): st
       ${xLabelTexts}
       ${yLabelTexts}
     </g>`;
+}
+
+function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string {
+  const data = [...rawData].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+
+  const W = 800;
+  const H = 320;
+  const pad = { top: 14, right: 12, bottom: 52, left: 50 };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
+
+  if (data.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const ys = data.map((d) => Number(d.y));
+  const maxY = Math.max(...ys);
+  const yMax = maxY || 1;
+  const n = data.length;
+
+  const slotW = iW / n;
+  const barPad = Math.min(slotW * 0.2, 10);
+  const barW = Math.max(1, slotW - barPad * 2);
+  const rx = Math.min(3, barW * 0.25);
+
+  const sy = (v: number) => iH - (v / yMax) * iH;
+
+  const bars = data.map((d, i) => {
+    const c = colors[i % colors.length];
+    const bx = i * slotW + barPad;
+    const bh = Math.max(1, (Number(d.y) / yMax) * iH);
+    const by = iH - bh;
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+  }).join("");
+
+  const yTicks = smartTicks(yMax);
+  const yGridLines = yTicks.map((v) => {
+    const y = sy(v);
+    if (y < -2 || y > iH + 2) return "";
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+  const yLabelTexts = yTicks.map((v) => {
+    const y = sy(v);
+    if (y < -2 || y > iH + 2) return "";
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+  }).join("");
+
+  const maxLabels = Math.max(2, Math.floor(iW / 55));
+  const step = Math.max(1, Math.ceil(n / maxLabels));
+  const xLabelTexts = data.map((d, i) => {
+    if (i % step !== 0 && i !== n - 1) return "";
+    const cx = i * slotW + slotW / 2;
+    const label = formatDateLabel(String(d.x));
+    return `<text transform="translate(${cx.toFixed(1)},${iH + 12}) rotate(-45)" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+  }).join("");
+
+  return `
+    <g transform="translate(${pad.left},${pad.top})">
+      ${yGridLines}
+      ${bars}
+      ${xLabelTexts}
+      ${yLabelTexts}
+    </g>`;
+}
+
+function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string {
+  if (rawData.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const agg: Record<string, number> = {};
+  for (const d of rawData) {
+    const key = String(d.x);
+    agg[key] = (agg[key] || 0) + (Number(d.y) || 0);
+  }
+  const entries = Object.entries(agg);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  if (total === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const W = 800, H = 320;
+  const cx = W / 2;
+  const cy = H / 2;
+  const R = Math.min(cx, cy) - 50;
+
+  let slices = "";
+  let labels = "";
+  let angle = -Math.PI / 2;
+
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i];
+    const sweep = (value / total) * 2 * Math.PI;
+    const endAngle = angle + sweep;
+    const c = colors[i % colors.length];
+
+    const x1 = cx + R * Math.cos(angle);
+    const y1 = cy + R * Math.sin(angle);
+    const x2 = cx + R * Math.cos(endAngle);
+    const y2 = cy + R * Math.sin(endAngle);
+    const large = sweep > Math.PI ? 1 : 0;
+
+    slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${c}" style="stroke:var(--bg);stroke-width:2;"/>`;
+
+    if (sweep > 0.12) {
+      const mid = angle + sweep / 2;
+      const lx = cx + (R + 20) * Math.cos(mid);
+      const ly = cy + (R + 20) * Math.sin(mid);
+      const pct = ((value / total) * 100).toFixed(0) + "%";
+      const anchor = lx > cx + 5 ? "start" : lx < cx - 5 ? "end" : "middle";
+      const label = name.length > 14 ? name.slice(0, 13) + "…" : name;
+      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="9" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
+    }
+
+    angle = endAngle;
+  }
+
+  return `<g>${slices}${labels}</g>`;
+}
+
+export const DEFAULT_MULTI_COLORS = [
+  "#6366f1", "#22d3ee", "#f59e0b", "#10b981", "#f43f5e", "#a855f7",
+];
+
+export function renderSvgChart(
+  rawData: { x: any; y: any }[],
+  color: string,
+  chartType: ChartType = "line",
+  colors?: string[],
+): string {
+  const resolvedColors = colors && colors.length > 0 ? colors : [color];
+  if (chartType === "bar") return renderBarChart(rawData, resolvedColors);
+  if (chartType === "pie") return renderPieChart(rawData, resolvedColors);
+  return renderLineChart(rawData, resolvedColors[0]);
 }

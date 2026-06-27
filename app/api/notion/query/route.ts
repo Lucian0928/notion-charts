@@ -16,12 +16,46 @@ function extractValue(prop: any): string | number | null {
       return prop.checkbox ? 1 : 0;
     case "select":
       return prop.select?.name || null;
-    case "formula":
+    case "multi_select":
+      return prop.multi_select?.map((o: any) => o.name).join(", ") || null;
+    case "status":
+      return prop.status?.name || null;
+    case "people":
+      return prop.people?.[0]?.name || null;
+    case "url":
+      return prop.url || null;
+    case "email":
+      return prop.email || null;
+    case "phone_number":
+      return prop.phone_number || null;
+    case "created_by":
+      return prop.created_by?.name || null;
+    case "last_edited_by":
+      return prop.last_edited_by?.name || null;
+    case "relation":
+      return prop.relation?.length ?? null;
+    case "unique_id":
+      return prop.unique_id?.number ?? null;
+    case "files":
+      return prop.files?.length > 0 ? prop.files.length : null;
+    case "formula": {
       const f = prop.formula;
       if (f?.type === "number") return f.number ?? null;
       if (f?.type === "string") return f.string || null;
       if (f?.type === "boolean") return f.boolean ? 1 : 0;
+      if (f?.type === "date") return f.date?.start || null;
       return null;
+    }
+    case "rollup": {
+      const r = prop.rollup;
+      if (r?.type === "number") return r.number ?? null;
+      if (r?.type === "date") return r.date?.start || null;
+      if (r?.type === "array" && Array.isArray(r.array)) {
+        const nums = r.array.map((item: any) => extractValue(item)).filter((v: any) => typeof v === "number");
+        return nums.length > 0 ? nums.reduce((a: number, b: number) => a + b, 0) : null;
+      }
+      return null;
+    }
     case "created_time":
       return prop.created_time || null;
     case "last_edited_time":

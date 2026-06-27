@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { renderSvgChart } from "@/lib/chartSvg";
+import { renderSvgChart, DEFAULT_MULTI_COLORS } from "@/lib/chartSvg";
 import { ChartConfig, ChartType, NotionDatabase, NotionProperty } from "@/lib/types";
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
@@ -75,6 +75,10 @@ export default function BuilderPage() {
   const [selectedDb,   setSelectedDb]   = useState<NotionDatabase | null>(null);
   const [properties,   setProperties]   = useState<NotionProperty[]>([]);
   const [chartType,    setChartType]    = useState<ChartType>("line");
+  const [colorMode,    setColorMode]    = useState<"single" | "multi">("single");
+  const [multiColors,  setMultiColors]  = useState<string[]>(DEFAULT_MULTI_COLORS);
+  const [hoveredColorIdx, setHoveredColorIdx] = useState<number | null>(null);
+  const multiColorInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [xField,       setXField]       = useState("");
   const [yField,       setYField]       = useState("");
   const [chartName,    setChartName]    = useState("");
@@ -82,6 +86,8 @@ export default function BuilderPage() {
   const [hexInput,     setHexInput]     = useState(PRESETS[0]);
   const [rgb,          setRgb]          = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
   const [previewData,  setPreviewData]  = useState<{ x: any; y: any }[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewQueried, setPreviewQueried] = useState(false);
   const [loadingDbs,   setLoadingDbs]   = useState(false);
   const [loadingPrev,  setLoadingPrev]  = useState(false);
   const [step,         setStep]         = useState(1);
@@ -133,6 +139,8 @@ export default function BuilderPage() {
     if (!chart) return;
     setChartName(chart.name || "");
     setChartType(chart.chartType || "line");
+    setColorMode(chart.colorMode || "single");
+    setMultiColors(chart.colors && chart.colors.length > 0 ? chart.colors : DEFAULT_MULTI_COLORS);
     applyColor(chart.color || PRESETS[0]);
     setXField(chart.xField || "");
     setYField(chart.yField || "");
@@ -160,11 +168,21 @@ export default function BuilderPage() {
   async function handlePreview() {
     if (!selectedDb || !xField || !yField) return;
     setLoadingPrev(true);
+    setPreviewError(null);
+    setPreviewQueried(true);
     try {
       const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`, { headers: { "x-notion-token": token } });
       const json = await res.json();
-      setPreviewData(json.data || []);
-      setStep(3);
+      if (json.error) {
+        setPreviewError(json.error);
+        setPreviewData([]);
+      } else {
+        setPreviewData(json.data || []);
+        if ((json.data || []).length === 0) setPreviewError("API returned 0 rows — the selected fields may be unsupported types or empty.");
+        setStep(3);
+      }
+    } catch (e: any) {
+      setPreviewError(e.message);
     } finally { setLoadingPrev(false); }
   }
 
@@ -173,7 +191,7 @@ export default function BuilderPage() {
     setSaveMsg(null);
     try {
       const name   = chartName || `${selectedDb!.name} - ${yField}`;
-      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, createdAt: Date.now() };
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, colorMode, colors: multiColors, createdAt: Date.now() };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
 
       let savedId: string;
@@ -338,53 +356,125 @@ export default function BuilderPage() {
             <div>
               <SLabel>Color</SLabel>
 
-              {/* Swatch + Hex */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <div onClick={() => colorInputRef.current?.click()}
-                    style={{ width: 38, height: 38, background: color, borderRadius: 8, cursor: "pointer",
-                      border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }} />
-                  <input ref={colorInputRef} type="color" value={color}
-                    onChange={(e) => applyColor(e.target.value)}
-                    style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
-                </div>
-                <input type="text" value={hexInput} maxLength={7}
-                  onChange={(e) => { setHexInput(e.target.value); applyColor(e.target.value); }}
-                  style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", flex: 1 }}
-                  placeholder="#6366f1"
-                />
-              </div>
-
-              {/* RGB */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {(["R","G","B"] as const).map((ch, i) => (
-                  <div key={ch} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                    <input type="number" min={0} max={255} value={rgb[i]}
-                      onChange={(e) => {
-                        const val = Math.max(0, Math.min(255, Number(e.target.value)));
-                        const next: [number,number,number] = [...rgb] as any;
-                        next[i] = val;
-                        applyRgb(...next);
-                      }}
-                      style={{ ...numInputStyle, width: "100%" }}
-                    />
-                    <span style={{ fontSize: 10, color: "var(--muted, #6b7280)" }}>{ch}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Preset swatches */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {PRESETS.map((c) => (
-                  <button key={c} onClick={() => applyColor(c)}
+              {/* Single / Multiple toggle */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {(["single", "multi"] as const).map((mode) => (
+                  <button key={mode} onClick={() => setColorMode(mode)}
                     style={{
-                      width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer",
-                      border: `2px solid ${color === c ? "white" : "transparent"}`,
-                      transform: color === c ? "scale(1.2)" : "scale(1)",
-                      transition: "all 0.15s", outline: "none",
-                    }} />
+                      flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                      cursor: "pointer", transition: "all 0.15s",
+                      background: colorMode === mode ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.03)",
+                      border: `1.5px solid ${colorMode === mode ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.08)"}`,
+                      color: colorMode === mode ? "white" : "rgba(255,255,255,0.4)",
+                    }}>
+                    {mode === "single" ? "Single color" : "Multiple colors"}
+                  </button>
                 ))}
               </div>
+
+              {colorMode === "single" ? (
+                <>
+                  {/* Swatch + Hex */}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <div onClick={() => colorInputRef.current?.click()}
+                        style={{ width: 38, height: 38, background: color, borderRadius: 8, cursor: "pointer",
+                          border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }} />
+                      <input ref={colorInputRef} type="color" value={color}
+                        onChange={(e) => applyColor(e.target.value)}
+                        style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }} />
+                    </div>
+                    <input type="text" value={hexInput} maxLength={7}
+                      onChange={(e) => { setHexInput(e.target.value); applyColor(e.target.value); }}
+                      style={{ ...inputStyle, fontFamily: "ui-monospace, monospace", flex: 1 }}
+                      placeholder="#6366f1"
+                    />
+                  </div>
+                  {/* RGB */}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                    {(["R","G","B"] as const).map((ch, i) => (
+                      <div key={ch} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <input type="number" min={0} max={255} value={rgb[i]}
+                          onChange={(e) => {
+                            const val = Math.max(0, Math.min(255, Number(e.target.value)));
+                            const next: [number,number,number] = [...rgb] as any;
+                            next[i] = val;
+                            applyRgb(...next);
+                          }}
+                          style={{ ...numInputStyle, width: "100%" }}
+                        />
+                        <span style={{ fontSize: 10, color: "var(--muted, #6b7280)" }}>{ch}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Preset swatches */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {PRESETS.map((c) => (
+                      <button key={c} onClick={() => applyColor(c)}
+                        style={{
+                          width: 26, height: 26, borderRadius: "50%", background: c, cursor: "pointer",
+                          border: `2px solid ${color === c ? "white" : "transparent"}`,
+                          transform: color === c ? "scale(1.2)" : "scale(1)",
+                          transition: "all 0.15s", outline: "none",
+                        }} />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Multi-color swatches */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {multiColors.map((c, i) => (
+                      <div key={i} style={{ position: "relative" }}
+                        onMouseEnter={() => setHoveredColorIdx(i)}
+                        onMouseLeave={() => setHoveredColorIdx(null)}>
+                        <div
+                          onClick={() => multiColorInputRefs.current[i]?.click()}
+                          style={{
+                            width: 44, height: 32, background: c, borderRadius: 6, cursor: "pointer",
+                            border: "1px solid rgba(255,255,255,0.2)", boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                          }}
+                        />
+                        <input
+                          type="color"
+                          value={c}
+                          onChange={(e) => {
+                            const next = [...multiColors];
+                            next[i] = e.target.value;
+                            setMultiColors(next);
+                          }}
+                          ref={(el) => { multiColorInputRefs.current[i] = el; }}
+                          style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+                        />
+                        {hoveredColorIdx === i && multiColors.length > 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setMultiColors(multiColors.filter((_, j) => j !== i)); }}
+                            style={{
+                              position: "absolute", top: -6, right: -6,
+                              width: 16, height: 16, borderRadius: "50%",
+                              background: "#1f2937", border: "1px solid rgba(255,255,255,0.3)",
+                              color: "white", fontSize: 10, cursor: "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              padding: 0, lineHeight: 1,
+                            }}>×</button>
+                        )}
+                      </div>
+                    ))}
+                    {/* Add color button */}
+                    <button
+                      onClick={() => setMultiColors([...multiColors, PRESETS[multiColors.length % PRESETS.length]])}
+                      style={{
+                        width: 44, height: 32, borderRadius: 6, cursor: "pointer",
+                        background: "rgba(255,255,255,0.04)", border: "1.5px dashed rgba(255,255,255,0.2)",
+                        color: "rgba(255,255,255,0.45)", fontSize: 20, display: "flex",
+                        alignItems: "center", justifyContent: "center",
+                      }}>+</button>
+                  </div>
+                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+                    Click a swatch to change its color
+                  </p>
+                </>
+              )}
             </div>
           )}
 
@@ -416,14 +506,26 @@ export default function BuilderPage() {
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", padding: "28px 32px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <span style={{ color: "white", fontWeight: 600, fontSize: 15 }}>Preview</span>
-          {previewData.length > 0 && (
-            <span style={{ fontSize: 12, color: "var(--muted, #6b7280)" }}>{previewData.length} entries</span>
+          {previewQueried && (
+            <span style={{ fontSize: 12, color: previewData.length > 0 ? "var(--muted, #6b7280)" : "#f87171" }}>
+              {previewData.length} entries
+            </span>
           )}
         </div>
+
+        {previewError && (
+          <div style={{
+            marginBottom: 12, padding: "10px 14px", borderRadius: 8,
+            background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)",
+            color: "#fca5a5", fontSize: 12, lineHeight: 1.5,
+          }}>
+            {previewError}
+          </div>
+        )}
+
         <div style={{ flex: 1, minHeight: 0, borderRadius: 16,
           background: "#191919", border: "1px solid rgba(255,255,255,0.07)",
           display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
-          /* CSS vars for the SVG to consume */
           ["--bg" as any]: "#191919",
           ["--label" as any]: "#6b7280",
           ["--grid" as any]: "rgba(255,255,255,0.08)",
@@ -434,12 +536,14 @@ export default function BuilderPage() {
               preserveAspectRatio="xMidYMid meet"
               style={{ width: "100%", height: "100%", display: "block" }}
               xmlns="http://www.w3.org/2000/svg"
-              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color) }}
+              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color, chartType, colorMode === "multi" ? multiColors : undefined) }}
             />
           ) : (
             <div style={{ textAlign: "center", color: "var(--muted, #6b7280)" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
-              <p style={{ fontSize: 14 }}>Configure fields then click Preview</p>
+              <p style={{ fontSize: 14 }}>
+                {previewQueried ? "No data — try different fields" : "Configure fields then click Preview"}
+              </p>
             </div>
           )}
         </div>
