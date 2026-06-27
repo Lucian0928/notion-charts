@@ -119,9 +119,10 @@ export default function BuilderPage() {
   const [multiColors,     setMultiColors]     = useState<string[]>(DEFAULT_MULTI_COLORS);
   const [hoveredColorIdx, setHoveredColorIdx] = useState<number | null>(null);
   const [xField,          setXField]          = useState("");
-  const [yFields,         setYFields]         = useState<string[]>([""]);
-  const [yAggregations,   setYAggregations]   = useState<string[]>(["sum"]);
-  const [openGearIdx,     setOpenGearIdx]     = useState<number | null>(null);
+  const [yFields,          setYFields]          = useState<string[]>([""]);
+  const [yAggregations,    setYAggregations]    = useState<string[]>(["sum"]);
+  const [yStartingPoints,  setYStartingPoints]  = useState<string[]>(["auto"]);
+  const [openGearIdx,      setOpenGearIdx]      = useState<number | null>(null);
   const [chartName,       setChartName]       = useState("");
   const [color,           setColor]           = useState(PRESETS[0]);
   const [hexInput,        setHexInput]        = useState(PRESETS[0]);
@@ -182,6 +183,7 @@ export default function BuilderPage() {
     const loadedYFields = chart.yFields?.length ? chart.yFields : [chart.yField || ""];
     setYFields(loadedYFields);
     setYAggregations(chart.yAggregations?.length ? chart.yAggregations : loadedYFields.map(() => "sum"));
+    setYStartingPoints(chart.yStartingPoints?.length ? chart.yStartingPoints.map(String) : loadedYFields.map(() => "auto"));
     const db = dbs.find(d => d.id === chart.databaseId);
     if (!db) return;
     setSelectedDb(db);
@@ -205,7 +207,7 @@ export default function BuilderPage() {
   }
 
   async function handleSelectDb(db: NotionDatabase) {
-    setSelectedDb(db); setXField(""); setYFields([""]); setYAggregations(["sum"]); setOpenGearIdx(null); setPreviewData([]);
+    setSelectedDb(db); setXField(""); setYFields([""]); setYAggregations(["sum"]); setYStartingPoints(["auto"]); setOpenGearIdx(null); setPreviewData([]);
     setDbOpen(false);
     const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token } });
     const json = await res.json();
@@ -238,7 +240,10 @@ export default function BuilderPage() {
       const validYFields = yFields.filter(Boolean);
       const name   = chartName || `${selectedDb!.name} - ${validYFields[0] || "Chart"}`;
       const validAggs = yAggregations.slice(0, validYFields.length).map(a => a || "sum");
-      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, yAggregations: validAggs, color, colorMode, colors: multiColors, createdAt: Date.now() };
+      const validSPs = yStartingPoints.slice(0, validYFields.length).map(sp =>
+        sp === "auto" ? "auto" as const : (isFinite(Number(sp)) ? Number(sp) : "auto" as const)
+      );
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, yAggregations: validAggs, yStartingPoints: validSPs, color, colorMode, colors: multiColors, createdAt: Date.now() };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
       if (editId) {
         const updated = existing.map(c => c.id === editId ? { ...c, ...config } : c);
@@ -437,6 +442,7 @@ export default function BuilderPage() {
                           onClick={() => {
                             setYFields(yFields.filter((_, j) => j !== i));
                             setYAggregations(yAggregations.filter((_, j) => j !== i));
+                            setYStartingPoints(yStartingPoints.filter((_, j) => j !== i));
                             if (openGearIdx === i) setOpenGearIdx(null);
                           }}
                           style={{
@@ -452,28 +458,70 @@ export default function BuilderPage() {
                       )}
                     </div>
                     {openGearIdx === i && (
-                      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
-                        {(["sum","average","count","cumulative"] as const).map(agg => (
-                          <button
-                            key={agg}
-                            onClick={() => { const next = [...yAggregations]; next[i] = agg; setYAggregations(next); }}
-                            style={{
-                              flex: 1, padding: "5px 0", fontSize: 11, fontWeight: 500,
-                              borderRadius: 6, cursor: "pointer",
-                              border: (yAggregations[i] || "sum") === agg ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
-                              background: (yAggregations[i] || "sum") === agg ? "rgba(59,130,246,0.08)" : "#f9fafb",
-                              color: (yAggregations[i] || "sum") === agg ? "#3b82f6" : "#6b7280",
-                            }}
-                          >
-                            {agg === "cumulative" ? "Cumul." : agg === "average" ? "Avg" : agg.charAt(0).toUpperCase() + agg.slice(1)}
-                          </button>
-                        ))}
+                      <div style={{ marginTop: 6, padding: "10px 10px 8px", borderRadius: 8, background: "rgba(0,0,0,0.03)", border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {/* Aggregation */}
+                        <div>
+                          <p style={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 5px" }}>Aggregation</p>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {(["sum","average","count","cumulative"] as const).map(agg => (
+                              <button
+                                key={agg}
+                                onClick={() => { const next = [...yAggregations]; next[i] = agg; setYAggregations(next); }}
+                                style={{
+                                  flex: 1, padding: "5px 0", fontSize: 11, fontWeight: 500,
+                                  borderRadius: 6, cursor: "pointer",
+                                  border: (yAggregations[i] || "sum") === agg ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
+                                  background: (yAggregations[i] || "sum") === agg ? "rgba(59,130,246,0.08)" : "#fff",
+                                  color: (yAggregations[i] || "sum") === agg ? "#3b82f6" : "#6b7280",
+                                }}
+                              >
+                                {agg === "cumulative" ? "Cumul." : agg === "average" ? "Avg" : agg.charAt(0).toUpperCase() + agg.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Starting Point */}
+                        <div>
+                          <p style={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 5px" }}>Starting point</p>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <button
+                              onClick={() => { const next = [...yStartingPoints]; next[i] = "auto"; setYStartingPoints(next); }}
+                              style={{
+                                padding: "5px 10px", fontSize: 11, fontWeight: 500,
+                                borderRadius: 6, cursor: "pointer", flexShrink: 0,
+                                border: (yStartingPoints[i] ?? "auto") === "auto" ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
+                                background: (yStartingPoints[i] ?? "auto") === "auto" ? "rgba(59,130,246,0.08)" : "#fff",
+                                color: (yStartingPoints[i] ?? "auto") === "auto" ? "#3b82f6" : "#6b7280",
+                              }}
+                            >Auto</button>
+                            <input
+                              type="number"
+                              placeholder="Custom…"
+                              value={(yStartingPoints[i] ?? "auto") === "auto" ? "" : yStartingPoints[i]}
+                              onChange={e => {
+                                const next = [...yStartingPoints];
+                                next[i] = e.target.value === "" ? "auto" : e.target.value;
+                                setYStartingPoints(next);
+                              }}
+                              onFocus={() => {
+                                if ((yStartingPoints[i] ?? "auto") === "auto") {
+                                  const next = [...yStartingPoints]; next[i] = ""; setYStartingPoints(next);
+                                }
+                              }}
+                              style={{
+                                flex: 1, padding: "5px 8px", fontSize: 11, borderRadius: 6,
+                                border: (yStartingPoints[i] ?? "auto") !== "auto" ? "1.5px solid #3b82f6" : "1px solid #e5e7eb",
+                                background: "#fff", color: "#374151", outline: "none",
+                              }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
                 ))}
                 <button
-                  onClick={() => setYFields([...yFields, ""])}
+                  onClick={() => { setYFields([...yFields, ""]); setYStartingPoints([...yStartingPoints, "auto"]); }}
                   style={{
                     width: "100%", padding: "8px 0", borderRadius: 8,
                     fontSize: 12, fontWeight: 500, cursor: "pointer",
@@ -705,7 +753,17 @@ export default function BuilderPage() {
               preserveAspectRatio="xMidYMid meet"
               style={{ width: "100%", height: "100%", display: "block" }}
               xmlns="http://www.w3.org/2000/svg"
-              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color, chartType, colorMode === "multi" ? multiColors : undefined, yFields.filter(Boolean)) }}
+              dangerouslySetInnerHTML={{ __html: renderSvgChart(
+                previewData, color, chartType,
+                colorMode === "multi" ? multiColors : undefined,
+                yFields.filter(Boolean),
+                yFields.filter(Boolean).map((_, i) => {
+                  const sp = yStartingPoints[i] ?? "auto";
+                  if (sp === "auto") return "auto" as const;
+                  const n = Number(sp);
+                  return isFinite(n) ? n : "auto" as const;
+                }),
+              ) }}
             />
           ) : (
             <div style={{ textAlign: "center", color: isDark ? "#4b5563" : "#9ca3af" }}>

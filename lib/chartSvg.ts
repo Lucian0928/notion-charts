@@ -45,6 +45,35 @@ function smartTicks(maxY: number): number[] {
   return ticks;
 }
 
+function resolveMinY(ys: number[], sp?: number | "auto"): number {
+  if (sp === "auto") {
+    const minVal = Math.min(...ys.filter(v => !isNaN(v)));
+    if (minVal <= 0) return 0;
+    const rough = minVal * 0.9;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1e-10))));
+    return Math.floor(rough / mag) * mag;
+  }
+  if (typeof sp === "number") return sp;
+  return 0;
+}
+
+function smartTicksFrom(minY: number, maxY: number): number[] {
+  if (minY <= 0) return smartTicks(maxY);
+  if (maxY <= minY) return [minY];
+  const range = maxY - minY;
+  const rough = range / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1e-10))));
+  const n = rough / mag;
+  const step = n < 1.5 ? mag : n < 3.5 ? 2 * mag : n < 7.5 ? 5 * mag : 10 * mag;
+  const start = Math.floor(minY / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; ticks.length <= 20; v = Math.round((v + step) * 1e9) / 1e9) {
+    if (v >= minY - step * 0.01) ticks.push(v);
+    if (v >= maxY) break;
+  }
+  return ticks;
+}
+
 function fmtTick(v: number): string {
   if (v >= 1000000) return (v / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
   if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
@@ -53,7 +82,7 @@ function fmtTick(v: number): string {
   return r % 1 === 0 ? String(r) : r.toFixed(r < 0.1 ? 3 : r < 1 ? 2 : 1);
 }
 
-function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
+function renderLineChart(rawData: { x: any; y: any }[], color: string, startingPoint?: number | "auto"): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
   );
@@ -80,11 +109,13 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
 
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
-  const yTicks = smartTicks(maxY);
-  const yRange = yTicks[yTicks.length - 1] || 1;
+  const yFloor = resolveMinY(ys, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
-  const sy = (v: number) => iH - (v / yRange) * iH;
+  const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d.y))]);
   const linePath = smoothLinePath(pts);
@@ -143,7 +174,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
     </g>`;
 }
 
-function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string {
+function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
   );
@@ -168,20 +199,22 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
 
   const ys = data.map((d) => Number(d.y));
   const maxY = Math.max(...ys);
-  const yTicks = smartTicks(maxY);
-  const yRange = yTicks[yTicks.length - 1] || 1;
+  const yFloor = resolveMinY(ys, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
 
   const slotW = iW / n;
   const barPad = Math.min(slotW * 0.2, 10);
   const barW = Math.max(1, slotW - barPad * 2);
   const rx = Math.min(3, barW * 0.25);
 
-  const sy = (v: number) => iH - (v / yRange) * iH;
+  const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const bx = i * slotW + barPad;
-    const bh = Math.max(1, (Number(d.y) / yRange) * iH);
+    const bh = Math.max(1, ((Number(d.y) - yFloor) / ySpan) * iH);
     const by = iH - bh;
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
   }).join("");
@@ -276,6 +309,7 @@ function renderMultiSeriesLineChart(
   rawData: Record<string, any>[],
   yFields: string[],
   colors: string[],
+  startingPoint?: number | "auto",
 ): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
@@ -298,11 +332,13 @@ function renderMultiSeriesLineChart(
 
   const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
   const maxY = Math.max(...allY, 0);
-  const yTicks = smartTicks(maxY);
-  const yRange = yTicks[yTicks.length - 1] || 1;
+  const yFloor = resolveMinY(allY, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
 
   const sx = (i: number) => (data.length > 1 ? i / (data.length - 1) : 0.5) * iW;
-  const sy = (v: number) => iH - (v / yRange) * iH;
+  const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const targetLabels = Math.max(6, Math.round(iW / 38));
   const effectiveCount = Math.min(targetLabels, data.length);
@@ -358,6 +394,7 @@ function renderMultiSeriesBarChart(
   rawData: Record<string, any>[],
   yFields: string[],
   colors: string[],
+  startingPoint?: number | "auto",
 ): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
@@ -379,8 +416,10 @@ function renderMultiSeriesBarChart(
 
   const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
   const maxY = Math.max(...allY, 0);
-  const yTicks = smartTicks(maxY);
-  const yRange = yTicks[yTicks.length - 1] || 1;
+  const yFloor = resolveMinY(allY, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
 
   const slotW = iW / n;
   const groupPad = Math.min(slotW * 0.1, 4);
@@ -388,7 +427,7 @@ function renderMultiSeriesBarChart(
   const barGap = 2;
   const barW = Math.max(1, (groupW - barGap * (nS - 1)) / nS);
   const rx = Math.min(3, barW * 0.25);
-  const sy = (v: number) => iH - (v / yRange) * iH;
+  const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const bars = data.map((d, i) => {
     const gx = i * slotW + groupPad;
@@ -396,7 +435,7 @@ function renderMultiSeriesBarChart(
       const c = colors[si % colors.length];
       const bx = gx + si * (barW + barGap);
       const val = Number(d[yf]) || 0;
-      const bh = Math.max(1, (val / yRange) * iH);
+      const bh = Math.max(1, ((val - yFloor) / ySpan) * iH);
       return `<rect x="${bx.toFixed(1)}" y="${(iH - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
     }).join("");
   }).join("");
@@ -431,7 +470,7 @@ function renderMultiSeriesBarChart(
   return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
-function renderHBarChart(rawData: { x: any; y: any }[], colors: string[]): string {
+function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
   );
@@ -446,8 +485,10 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[]): strin
 
   const ys = data.map(d => Number(d.y));
   const maxY = Math.max(...ys, 0);
-  const xTicks = smartTicks(maxY);
-  const xRange = xTicks[xTicks.length - 1] || 1;
+  const xFloor = resolveMinY(ys, startingPoint);
+  const xTicks = smartTicksFrom(xFloor, maxY);
+  const xCeil = xTicks[xTicks.length - 1] || 1;
+  const xSpan = xCeil - xFloor || 1;
 
   const slotH = iH / n;
   const barPad = Math.min(slotH * 0.2, 6);
@@ -457,7 +498,7 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[]): strin
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const by = i * slotH + barPad;
-    const bw = Math.max(1, (Number(d.y) / xRange) * iW);
+    const bw = Math.max(1, ((Number(d.y) - xFloor) / xSpan) * iW);
     return `<rect x="0" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
   }).join("");
 
@@ -471,13 +512,13 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[]): strin
   }).join("");
 
   const xGridLines = xTicks.map(v => {
-    const x = (v / xRange) * iW;
+    const x = ((v - xFloor) / xSpan) * iW;
     if (x < -2 || x > iW + 2) return "";
     return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
 
   const xLabelTexts = xTicks.map(v => {
-    const x = (v / xRange) * iW;
+    const x = ((v - xFloor) / xSpan) * iW;
     if (x < -2 || x > iW + 2) return "";
     return `<text x="${x.toFixed(1)}" y="${(iH + 14).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
@@ -621,25 +662,26 @@ export function renderSvgChart(
   chartType: ChartType = "line",
   colors?: string[],
   yFields?: string[],
+  startingPoints?: (number | "auto")[],
 ): string {
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
+  const sp0 = startingPoints?.[0];
   if (yFields && yFields.length > 1) {
     const multi = rawData as Record<string, any>[];
-    if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors);
+    if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, sp0);
     if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
     if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
     if (chartType === "radar") return renderRadarChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
-    return renderMultiSeriesLineChart(multi, yFields, resolvedColors);
+    return renderMultiSeriesLineChart(multi, yFields, resolvedColors, sp0);
   }
-  // Normalize single-series data: map {x, [field]: val} → {x, y: val}
   const single: { x: any; y: any }[] = (yFields && yFields.length === 1)
     ? rawData.map(d => ({ x: d.x, y: d[yFields[0]] }))
     : rawData as { x: any; y: any }[];
-  if (chartType === "bar") return renderBarChart(single, resolvedColors);
-  if (chartType === "hbar") return renderHBarChart(single, resolvedColors);
+  if (chartType === "bar") return renderBarChart(single, resolvedColors, sp0);
+  if (chartType === "hbar") return renderHBarChart(single, resolvedColors, sp0);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
   if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors);
   if (chartType === "radar") return renderRadarChart(single, resolvedColors[0]);
   if (chartType === "kpi") return renderKPIChart(single, color);
-  return renderLineChart(single, resolvedColors[0]);
+  return renderLineChart(single, resolvedColors[0], sp0);
 }
