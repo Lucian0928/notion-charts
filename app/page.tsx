@@ -439,15 +439,7 @@ export default function DashboardPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       {showNewChart && (
-        <NewChartModal
-          onClose={() => setShowNewChart(false)}
-          onSaved={(chart) => {
-            setCharts(prev => [...prev, chart]);
-            setShowNewChart(false);
-            const t = localStorage.getItem("notion_token") || "";
-            fetchChartData(chart, t);
-          }}
-        />
+        <NewChartModal onClose={() => setShowNewChart(false)} />
       )}
     </div>
   );

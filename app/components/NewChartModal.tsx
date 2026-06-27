@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChartConfig, NotionDatabase, NotionProperty } from "@/lib/types";
-import { renderSvgChart, getViewBox, DEFAULT_MULTI_COLORS } from "@/lib/chartSvg";
 
 // ── Chart type icons (32 px) ──────────────────────────────────────────────────
 const MBarIcon = () => (
@@ -46,19 +46,13 @@ const MKPIIcon = () => (
 );
 
 const CHART_TYPES = [
-  { id: "bar",      label: "Bar Chart",       Icon: MBarIcon,      ready: true  },
-  { id: "line",     label: "Line Chart",      Icon: MLineIcon,     ready: true  },
-  { id: "pie",      label: "Pie Chart",       Icon: MPieIcon,      ready: true  },
-  { id: "hbar",     label: "Horizontal bar",  Icon: MHBarIcon,     ready: false },
-  { id: "doughnut", label: "Doughnut",        Icon: MDoughnutIcon, ready: false },
-  { id: "radar",    label: "Radar Chart",     Icon: MRadarIcon,    ready: false },
-  { id: "kpi",      label: "KPI",             Icon: MKPIIcon,      ready: false },
-];
-
-const PRESETS = [
-  "#6366f1","#8b5cf6","#a855f7","#ec4899",
-  "#f43f5e","#f97316","#f59e0b","#22c55e",
-  "#10b981","#14b8a6","#22d3ee","#3b82f6",
+  { id: "bar",      label: "Bar Chart",      Icon: MBarIcon      },
+  { id: "line",     label: "Line Chart",     Icon: MLineIcon     },
+  { id: "pie",      label: "Pie Chart",      Icon: MPieIcon      },
+  { id: "hbar",     label: "Horizontal bar", Icon: MHBarIcon     },
+  { id: "doughnut", label: "Doughnut",       Icon: MDoughnutIcon },
+  { id: "radar",    label: "Radar Chart",    Icon: MRadarIcon    },
+  { id: "kpi",      label: "KPI",            Icon: MKPIIcon      },
 ];
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -93,7 +87,6 @@ function StepIndicator({ step }: { step: number }) {
   );
 }
 
-// ── Field label ───────────────────────────────────────────────────────────────
 function FLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
     <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
@@ -103,7 +96,7 @@ function FLabel({ children, required }: { children: React.ReactNode; required?: 
 }
 
 const selectStyle: React.CSSProperties = {
-  width: "100%", padding: "9px 12px",
+  width: "100%", padding: "10px 12px",
   border: "1px solid #e5e7eb", borderRadius: 8,
   background: "#fff", color: "#374151", fontSize: 13,
   outline: "none", cursor: "pointer", appearance: "none",
@@ -113,34 +106,27 @@ const selectStyle: React.CSSProperties = {
 };
 
 const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "9px 12px",
+  width: "100%", padding: "10px 12px",
   border: "1px solid #e5e7eb", borderRadius: 8,
   background: "#fff", color: "#374151", fontSize: 13,
   outline: "none",
 };
 
 // ── Main modal ────────────────────────────────────────────────────────────────
-export function NewChartModal({ onClose, onSaved }: {
-  onClose: () => void;
-  onSaved: (chart: ChartConfig) => void;
-}) {
-  const token = useRef("");
-  const [step,         setStep]         = useState(1);
-  const [selType,      setSelType]      = useState("bar");
-  const [databases,    setDatabases]    = useState<NotionDatabase[]>([]);
-  const [dbSearch,     setDbSearch]     = useState("");
-  const [loadingDbs,   setLoadingDbs]   = useState(false);
-  const [selectedDb,   setSelectedDb]   = useState<NotionDatabase | null>(null);
-  const [properties,   setProperties]   = useState<NotionProperty[]>([]);
-  const [xField,       setXField]       = useState("");
-  const [yField,       setYField]       = useState("");
-  const [chartName,    setChartName]    = useState("");
-  const [color,        setColor]        = useState(PRESETS[0]);
-  const [colorMode,    setColorMode]    = useState<"single"|"multi">("single");
-  const [multiColors,  setMultiColors]  = useState<string[]>(DEFAULT_MULTI_COLORS);
-  const [previewData,  setPreviewData]  = useState<{ x: any; y: any }[]>([]);
-  const [loadingPrev,  setLoadingPrev]  = useState(false);
-  const [saving,       setSaving]       = useState(false);
+export function NewChartModal({ onClose }: { onClose: () => void }) {
+  const router     = useRouter();
+  const token      = useRef("");
+  const [step,       setStep]      = useState(1);
+  const [selType,    setSelType]   = useState("bar");
+  const [databases,  setDatabases] = useState<NotionDatabase[]>([]);
+  const [dbSearch,   setDbSearch]  = useState("");
+  const [loadingDbs, setLoadingDbs]= useState(false);
+  const [selectedDb, setSelectedDb]= useState<NotionDatabase | null>(null);
+  const [properties, setProperties]= useState<NotionProperty[]>([]);
+  const [xField,     setXField]    = useState("");
+  const [yField,     setYField]    = useState("");
+  const [chartName,  setChartName] = useState("");
+  const [saving,     setSaving]    = useState(false);
 
   useEffect(() => {
     const t = localStorage.getItem("notion_token") || "";
@@ -159,28 +145,14 @@ export function NewChartModal({ onClose, onSaved }: {
 
   async function handleSelectDb(db: NotionDatabase) {
     setSelectedDb(db);
-    setXField(""); setYField(""); setPreviewData([]);
+    setXField(""); setYField("");
     const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token.current } });
     const json = await res.json();
     setProperties(json.properties || []);
   }
 
-  // Auto-refresh preview when both fields are set
-  useEffect(() => {
-    if (!selectedDb || !xField || !yField) { setPreviewData([]); return; }
-    setLoadingPrev(true);
-    fetch(
-      `/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`,
-      { headers: { "x-notion-token": token.current } }
-    )
-      .then(r => r.json())
-      .then(j => setPreviewData(j.data || []))
-      .catch(() => {})
-      .finally(() => setLoadingPrev(false));
-  }, [xField, yField, selectedDb]);
-
-  async function handleSave() {
-    if (!selectedDb) return;
+  async function handleCreate() {
+    if (!selectedDb || !xField || !yField) return;
     setSaving(true);
     try {
       const name = chartName.trim() || `${selectedDb.name} - ${yField}`;
@@ -190,8 +162,10 @@ export function NewChartModal({ onClose, onSaved }: {
         databaseId:   selectedDb.id,
         databaseName: selectedDb.name,
         chartType:    selType as any,
-        xField, yField, color, colorMode,
-        colors:       colorMode === "multi" ? multiColors : [],
+        xField, yField,
+        color:        "#6366f1",
+        colorMode:    "single",
+        colors:       [],
         createdAt:    Date.now(),
       };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
@@ -200,7 +174,8 @@ export function NewChartModal({ onClose, onSaved }: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newChart),
       });
-      onSaved(newChart);
+      onClose();
+      router.push(`/builder?id=${id}`);
     } finally { setSaving(false); }
   }
 
@@ -208,7 +183,8 @@ export function NewChartModal({ onClose, onSaved }: {
     ? databases.filter(d => d.name.toLowerCase().includes(dbSearch.toLowerCase()))
     : databases;
 
-  const isWide = step === 3;
+  const canNext2 = !!selectedDb;
+  const canCreate = !!xField && !!yField;
 
   return (
     <div
@@ -219,13 +195,13 @@ export function NewChartModal({ onClose, onSaved }: {
         onClick={e => e.stopPropagation()}
         style={{
           background: "#fff", borderRadius: 18,
-          width: isWide ? 960 : 720, maxWidth: "95vw", maxHeight: "90vh",
+          width: 680, maxWidth: "95vw", maxHeight: "88vh",
           boxShadow: "0 24px 64px rgba(0,0,0,0.16)",
           display: "flex", flexDirection: "column",
           overflow: "hidden",
         }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div style={{ padding: "24px 28px 0", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#111" }}>New Chart</h2>
@@ -238,8 +214,8 @@ export function NewChartModal({ onClose, onSaved }: {
           <StepIndicator step={step} />
         </div>
 
-        {/* ── Body ── */}
-        <div style={{ flex: 1, overflow: "hidden", padding: "4px 28px 0" }}>
+        {/* Body */}
+        <div style={{ flex: 1, overflow: "auto", padding: "4px 28px 0" }}>
 
           {/* Step 1 — Chart type */}
           {step === 1 && (
@@ -266,12 +242,8 @@ export function NewChartModal({ onClose, onSaved }: {
 
           {/* Step 2 — Database */}
           {step === 2 && (
-            <div style={{
-              border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden",
-              display: "flex", flexDirection: "column",
-            }}>
-              {/* Search + Refresh */}
-              <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #e5e7eb" }}>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb" }}>
                 <input
                   value={dbSearch}
                   onChange={e => setDbSearch(e.target.value)}
@@ -283,28 +255,23 @@ export function NewChartModal({ onClose, onSaved }: {
                   disabled={loadingDbs}
                   style={{
                     padding: "11px 18px", border: "none", borderLeft: "1px solid #e5e7eb",
-                    background: "#f9fafb", cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    color: "#374151", flexShrink: 0,
+                    background: "#f9fafb", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#374151",
                   }}
                 >
                   {loadingDbs ? "..." : "Refresh"}
                 </button>
               </div>
-
-              {/* Database list */}
-              <div style={{ maxHeight: 320, overflowY: "auto" }}>
-                {filteredDbs.length === 0 && (
+              <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                {filteredDbs.length === 0 ? (
                   <div style={{ padding: "24px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
                     {loadingDbs ? "Loading databases..." : "No databases found"}
                   </div>
-                )}
-                {filteredDbs.map((db, i) => (
+                ) : filteredDbs.map((db, i) => (
                   <label key={db.id} onClick={() => handleSelectDb(db)} style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "14px 16px",
                     borderBottom: i < filteredDbs.length - 1 ? "1px solid #f3f4f6" : "none",
                     cursor: "pointer", background: selectedDb?.id === db.id ? "#f0f7ff" : "#fff",
-                    transition: "background 0.1s",
                   }}>
                     <span style={{ fontSize: 14, color: "#111", fontWeight: selectedDb?.id === db.id ? 500 : 400 }}>
                       {db.name}
@@ -315,148 +282,45 @@ export function NewChartModal({ onClose, onSaved }: {
                       background: selectedDb?.id === db.id ? "#3b82f6" : "transparent",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      {selectedDb?.id === db.id && (
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />
-                      )}
+                      {selectedDb?.id === db.id && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />}
                     </div>
                   </label>
                 ))}
               </div>
-
-              {/* Footer hint */}
-              <div style={{ padding: "10px 16px", borderTop: "1px solid #f3f4f6", background: "#fafafa" }}>
-                <span style={{ fontSize: 12, color: "#3b82f6", cursor: "pointer" }}>
-                  Couldn&apos;t find your database? →
-                </span>
-              </div>
             </div>
           )}
 
-          {/* Step 3 — Settings + Preview */}
+          {/* Step 3 — Chart settings */}
           {step === 3 && (
-            <div style={{ display: "flex", gap: 20, height: 430 }}>
-
-              {/* Left: settings */}
-              <div style={{ width: 300, flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 16, paddingBottom: 4 }}>
-                <div>
-                  <FLabel>Label</FLabel>
-                  <input
-                    value={chartName}
-                    onChange={e => setChartName(e.target.value)}
-                    placeholder={selectedDb ? `${selectedDb.name} - ${yField || "value"}` : "Chart name"}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <FLabel required>X axis</FLabel>
-                  <select value={xField} onChange={e => setXField(e.target.value)} style={selectStyle as any}>
-                    <option value="">Select a column...</option>
-                    {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <FLabel required>Y axis</FLabel>
-                  <select value={yField} onChange={e => setYField(e.target.value)} style={selectStyle as any}>
-                    <option value="">Select a column...</option>
-                    {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
-                </div>
-
-                {/* Color */}
-                <div>
-                  <FLabel>Color</FLabel>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                    {(["single","multi"] as const).map(m => (
-                      <button key={m} onClick={() => setColorMode(m)} style={{
-                        flex: 1, padding: "6px 0", borderRadius: 7, fontSize: 12, fontWeight: 500,
-                        cursor: "pointer", border: `1.5px solid ${colorMode === m ? "#3b82f6" : "#e5e7eb"}`,
-                        background: colorMode === m ? "rgba(59,130,246,0.07)" : "#fff",
-                        color: colorMode === m ? "#3b82f6" : "#6b7280",
-                      }}>
-                        {m === "single" ? "Single" : "Multiple"}
-                      </button>
-                    ))}
-                  </div>
-                  {colorMode === "single" ? (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                      {PRESETS.map(c => (
-                        <button key={c} onClick={() => setColor(c)} style={{
-                          width: 26, height: 26, borderRadius: "50%", background: c, border: "none",
-                          cursor: "pointer", outline: color === c ? `3px solid ${c}` : "none",
-                          outlineOffset: 2, transform: color === c ? "scale(1.15)" : "scale(1)",
-                          transition: "transform 0.12s",
-                        }} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {multiColors.map((c, i) => (
-                        <div key={i} style={{
-                          width: 26, height: 26, borderRadius: "50%", background: c,
-                          border: "2px solid rgba(0,0,0,0.08)", cursor: "pointer",
-                        }} />
-                      ))}
-                    </div>
-                  )}
-                </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "4px 60px 4px" }}>
+              <div>
+                <FLabel>Label</FLabel>
+                <input
+                  value={chartName}
+                  onChange={e => setChartName(e.target.value)}
+                  placeholder={selectedDb ? `${selectedDb.name} - ${yField || "value"}` : "Chart name"}
+                  style={inputStyle}
+                />
               </div>
-
-              {/* Right: live preview */}
-              <div style={{
-                flex: 1, borderRadius: 12, overflow: "hidden",
-                background: "#f2f2f7",
-                border: "1px solid rgba(0,0,0,0.07)",
-                display: "flex", flexDirection: "column",
-                ["--bg" as any]: "#f2f2f7",
-                ["--label" as any]: "#6b7280",
-                ["--grid" as any]: "rgba(0,0,0,0.07)",
-              }}>
-                {/* Preview header */}
-                <div style={{ padding: "10px 14px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Preview</span>
-                  {previewData.length > 0 && (
-                    <span style={{ fontSize: 11, color: "#9ca3af" }}>{previewData.length} entries</span>
-                  )}
-                </div>
-
-                {/* Chart area */}
-                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                  {loadingPrev ? (
-                    <div style={{
-                      width: 22, height: 22, borderRadius: "50%",
-                      border: `2px solid ${color}33`, borderTopColor: color,
-                      animation: "spin 0.8s linear infinite",
-                    }} />
-                  ) : previewData.length > 0 ? (
-                    <svg
-                      viewBox={getViewBox(selType as any)}
-                      preserveAspectRatio="xMidYMid meet"
-                      style={{ width: "100%", height: "100%", display: "block" }}
-                      xmlns="http://www.w3.org/2000/svg"
-                      dangerouslySetInnerHTML={{
-                        __html: renderSvgChart(
-                          previewData, color, selType as any,
-                          colorMode === "multi" ? multiColors : undefined
-                        )
-                      }}
-                    />
-                  ) : (
-                    <div style={{ textAlign: "center", color: "#9ca3af" }}>
-                      <div style={{ fontSize: 36, marginBottom: 10 }}>📊</div>
-                      <p style={{ fontSize: 13, margin: 0 }}>
-                        {xField && yField ? "No data returned" : "Select X and Y axis to preview"}
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div>
+                <FLabel required>X axis</FLabel>
+                <select value={xField} onChange={e => setXField(e.target.value)} style={selectStyle as any}>
+                  <option value="">Select a column...</option>
+                  {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <FLabel required>Y axis</FLabel>
+                <select value={yField} onChange={e => setYField(e.target.value)} style={selectStyle as any}>
+                  <option value="">Select a column...</option>
+                  {properties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Footer buttons ── */}
+        {/* Footer */}
         <div style={{ padding: "16px 28px 24px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, flexShrink: 0 }}>
           {step > 1 && (
             <button
@@ -469,12 +333,13 @@ export function NewChartModal({ onClose, onSaved }: {
           {step < 3 && (
             <button
               onClick={() => setStep(step + 1)}
-              disabled={step === 2 && !selectedDb}
+              disabled={step === 2 && !canNext2}
               style={{
                 padding: "9px 28px", borderRadius: 9, border: "none",
-                background: step === 2 && !selectedDb ? "#cbd5e1" : "#3b82f6",
-                color: "#fff", fontSize: 14, fontWeight: 600, cursor: step === 2 && !selectedDb ? "not-allowed" : "pointer",
-                boxShadow: step === 2 && !selectedDb ? "none" : "0 2px 12px rgba(59,130,246,0.3)",
+                background: step === 2 && !canNext2 ? "#cbd5e1" : "#3b82f6",
+                color: "#fff", fontSize: 14, fontWeight: 600,
+                cursor: step === 2 && !canNext2 ? "not-allowed" : "pointer",
+                boxShadow: step === 2 && !canNext2 ? "none" : "0 2px 12px rgba(59,130,246,0.3)",
               }}
             >
               Next
@@ -482,14 +347,14 @@ export function NewChartModal({ onClose, onSaved }: {
           )}
           {step === 3 && (
             <button
-              onClick={handleSave}
-              disabled={!xField || !yField || saving}
+              onClick={handleCreate}
+              disabled={!canCreate || saving}
               style={{
                 padding: "9px 28px", borderRadius: 9, border: "none",
-                background: !xField || !yField || saving ? "#cbd5e1" : "#3b82f6",
+                background: !canCreate || saving ? "#cbd5e1" : "#3b82f6",
                 color: "#fff", fontSize: 14, fontWeight: 600,
-                cursor: !xField || !yField || saving ? "not-allowed" : "pointer",
-                boxShadow: !xField || !yField || saving ? "none" : "0 2px 12px rgba(59,130,246,0.3)",
+                cursor: !canCreate || saving ? "not-allowed" : "pointer",
+                boxShadow: !canCreate || saving ? "none" : "0 2px 12px rgba(59,130,246,0.3)",
               }}
             >
               {saving ? "Creating..." : "Create Chart"}
@@ -497,8 +362,6 @@ export function NewChartModal({ onClose, onSaved }: {
           )}
         </div>
       </div>
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
