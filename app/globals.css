@@ -1,87 +1,159 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0f;
-  --surface: rgba(255, 255, 255, 0.04);
-  --border: rgba(255, 255, 255, 0.08);
+  --bg: #f2f2f7;
+  --surface: rgba(255,255,255,0.72);
+  --border: rgba(0,0,0,0.07);
   --accent: #6366f1;
-  --accent-glow: rgba(99, 102, 241, 0.3);
-  --text: #e2e8f0;
-  --muted: #64748b;
+  --accent-glow: rgba(99,102,241,0.15);
+  --text: #111827;
+  --muted: #6b7280;
+  --sidebar-w: 220px;
 }
 
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
-  background-color: var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── Glass card ─────────────────────────────────────────────────────────── */
 .glass {
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.95);
   border-radius: 16px;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.05), 0 1px 0 rgba(255,255,255,1) inset;
 }
 
-.glass-input {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 10px 14px;
-  width: 100%;
-  outline: none;
-  transition: border-color 0.2s;
-  font-size: 14px;
-}
-
-.glass-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-
-.glass-input option {
-  background: #1a1a2e;
-}
-
+/* ── Glass liquid buttons ────────────────────────────────────────────────── */
 .btn-primary {
-  background: var(--accent);
-  color: white;
-  border: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,0.12);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(99,102,241,0.3);
+  box-shadow: 0 2px 16px rgba(99,102,241,0.12), 0 1px 0 rgba(255,255,255,0.7) inset;
   border-radius: 10px;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
+  color: #6366f1;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: box-shadow 0.2s, transform 0.1s;
 }
-
 .btn-primary:hover {
-  opacity: 0.9;
+  box-shadow: 0 4px 24px rgba(99,102,241,0.2), 0 1px 0 rgba(255,255,255,0.8) inset;
 }
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
-.btn-primary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 20px;
-  font-size: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.85);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,1) inset;
+  border-radius: 8px;
+  color: #374151;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+  transition: box-shadow 0.2s;
+}
+.btn-ghost:hover {
+  box-shadow: 0 2px 14px rgba(0,0,0,0.1), 0 1px 0 rgba(255,255,255,1) inset;
 }
 
-.btn-ghost:hover {
+.btn-danger {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(244,63,94,0.08);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(244,63,94,0.22);
+  box-shadow: 0 1px 8px rgba(244,63,94,0.06), 0 1px 0 rgba(255,255,255,0.6) inset;
+  border-radius: 8px;
+  color: #e11d48;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.btn-danger:hover {
+  box-shadow: 0 2px 14px rgba(244,63,94,0.14), 0 1px 0 rgba(255,255,255,0.7) inset;
+}
+
+.btn-accent-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,0.09);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(99,102,241,0.22);
+  box-shadow: 0 1px 8px rgba(99,102,241,0.07), 0 1px 0 rgba(255,255,255,0.6) inset;
+  border-radius: 8px;
+  color: #6366f1;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.btn-accent-ghost:hover {
+  box-shadow: 0 2px 14px rgba(99,102,241,0.14), 0 1px 0 rgba(255,255,255,0.7) inset;
+}
+.btn-accent-ghost.copied {
+  background: rgba(16,185,129,0.09);
+  border-color: rgba(16,185,129,0.22);
+  color: #059669;
+  box-shadow: 0 1px 8px rgba(16,185,129,0.07), 0 1px 0 rgba(255,255,255,0.6) inset;
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────────────── */
+.glass-input {
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 10px;
   color: var(--text);
-  border-color: rgba(255, 255, 255, 0.2);
+  padding: 9px 13px;
+  width: 100%;
+  outline: none;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04) inset;
+}
+.glass-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow), 0 1px 4px rgba(0,0,0,0.04) inset;
+}
+
+/* ── Chart grid ──────────────────────────────────────────────────────────── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1100px) { .chart-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 680px)  { .chart-grid { grid-template-columns: 1fr; } }
+
+/* ── Sidebar nav item ────────────────────────────────────────────────────── */
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px; border-radius: 8px;
+  font-size: 13px; font-weight: 500;
+  color: var(--muted); cursor: pointer; border: none;
+  background: transparent; width: 100%; text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover { background: rgba(0,0,0,0.04); color: var(--text); }
+.nav-item.active {
+  background: rgba(99,102,241,0.1);
+  color: #6366f1;
 }
