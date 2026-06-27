@@ -431,8 +431,184 @@ function renderMultiSeriesBarChart(
   return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
+function renderHBarChart(rawData: { x: any; y: any }[], colors: string[]): string {
+  const data = [...rawData].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+  const W = 800, H = 320;
+  if (data.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const n = data.length;
+  const lp = 90, rp = 16, tp = 14, bp = 24;
+  const iW = W - lp - rp;
+  const iH = H - tp - bp;
+
+  const ys = data.map(d => Number(d.y));
+  const maxY = Math.max(...ys, 0);
+  const xTicks = smartTicks(maxY);
+  const xRange = xTicks[xTicks.length - 1] || 1;
+
+  const slotH = iH / n;
+  const barPad = Math.min(slotH * 0.2, 6);
+  const barH = Math.max(1, slotH - barPad * 2);
+  const rx = Math.min(3, barH * 0.25);
+
+  const bars = data.map((d, i) => {
+    const c = colors[i % colors.length];
+    const by = i * slotH + barPad;
+    const bw = Math.max(1, (Number(d.y) / xRange) * iW);
+    return `<rect x="0" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+  }).join("");
+
+  const maxLabels = Math.max(2, Math.floor(iH / 20));
+  const labelStep = Math.max(1, Math.ceil(n / maxLabels));
+  const yLabelTexts = data.map((d, i) => {
+    if (i % labelStep !== 0 && i !== n - 1) return "";
+    const cy2 = i * slotH + slotH / 2;
+    const label = String(d.x).length > 12 ? String(d.x).slice(0, 11) + "…" : String(d.x);
+    return `<text x="-6" y="${(cy2 + 3.5).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
+  }).join("");
+
+  const xGridLines = xTicks.map(v => {
+    const x = (v / xRange) * iW;
+    if (x < -2 || x > iW + 2) return "";
+    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+
+  const xLabelTexts = xTicks.map(v => {
+    const x = (v / xRange) * iW;
+    if (x < -2 || x > iW + 2) return "";
+    return `<text x="${x.toFixed(1)}" y="${(iH + 14).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+  }).join("");
+
+  return `<g transform="translate(${lp},${tp})">${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
+}
+
+function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[]): string {
+  if (rawData.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const agg: Record<string, number> = {};
+  for (const d of rawData) {
+    const key = String(d.x);
+    agg[key] = (agg[key] || 0) + (Number(d.y) || 0);
+  }
+  const entries = Object.entries(agg);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  if (total === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const W = 620, H = 500;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(cx, cy) - 75;
+  const innerR = R * 0.5;
+
+  let slices = "", labels = "";
+  let angle = -Math.PI / 2;
+
+  for (let i = 0; i < entries.length; i++) {
+    const [name, value] = entries[i];
+    const sweep = (value / total) * 2 * Math.PI;
+    const endAngle = angle + sweep;
+    const c = colors[i % colors.length];
+    const large = sweep > Math.PI ? 1 : 0;
+
+    const x1o = cx + R * Math.cos(angle), y1o = cy + R * Math.sin(angle);
+    const x2o = cx + R * Math.cos(endAngle), y2o = cy + R * Math.sin(endAngle);
+    const x1i = cx + innerR * Math.cos(endAngle), y1i = cy + innerR * Math.sin(endAngle);
+    const x2i = cx + innerR * Math.cos(angle), y2i = cy + innerR * Math.sin(angle);
+
+    slices += `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${c}" style="stroke:var(--bg);stroke-width:2;"/>`;
+
+    if (sweep > 0.1) {
+      const mid = angle + sweep / 2;
+      const lx = cx + (R + 26) * Math.cos(mid);
+      const ly = cy + (R + 26) * Math.sin(mid);
+      const pct = ((value / total) * 100).toFixed(0) + "%";
+      const anchor = lx > cx + 8 ? "start" : lx < cx - 8 ? "end" : "middle";
+      const label = name.length > 16 ? name.slice(0, 15) + "…" : name;
+      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
+    }
+    angle = endAngle;
+  }
+
+  const fmtTotal = fmtTick(total);
+  const center = `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="22" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
+
+  return `<g>${slices}${labels}${center}</g>`;
+}
+
+function renderRadarChart(rawData: { x: any; y: any }[], color: string): string {
+  const agg: Record<string, number> = {};
+  for (const d of rawData) {
+    const key = String(d.x);
+    agg[key] = (agg[key] || 0) + (Number(d.y) || 0);
+  }
+  const entries = Object.entries(agg).slice(0, 8);
+  const n = entries.length;
+  if (n < 3)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">Radar needs ≥ 3 categories</text>`;
+
+  const W = 620, H = 500;
+  const cx = W / 2, cy = H / 2;
+  const R = Math.min(cx, cy) - 80;
+  const maxVal = Math.max(...entries.map(([, v]) => v), 1);
+
+  const levels = 4;
+  const gridPolygons = Array.from({ length: levels }, (_, l) => {
+    const r = R * ((l + 1) / levels);
+    const pts = Array.from({ length: n }, (_, i) => {
+      const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+      return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+    }).join(" ");
+    return `<polygon points="${pts}" fill="none" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+
+  const axes = Array.from({ length: n }, (_, i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    return `<line x1="${cx}" y1="${cy}" x2="${(cx + R * Math.cos(a)).toFixed(1)}" y2="${(cy + R * Math.sin(a)).toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+
+  const axisLabels = entries.map(([name], i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    const lx = cx + (R + 22) * Math.cos(a);
+    const ly = cy + (R + 22) * Math.sin(a);
+    const label = name.length > 12 ? name.slice(0, 11) + "…" : name;
+    const anchor = Math.cos(a) > 0.1 ? "start" : Math.cos(a) < -0.1 ? "end" : "middle";
+    return `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
+  }).join("");
+
+  const pts = entries.map(([, v], i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    const r = R * (v / maxVal);
+    return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+  }).join(" ");
+
+  const dots = entries.map(([, v], i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    const r = R * (v / maxVal);
+    return `<circle cx="${(cx + r * Math.cos(a)).toFixed(1)}" cy="${(cy + r * Math.sin(a)).toFixed(1)}" r="4" fill="${color}" fill-opacity="0.8"/>`;
+  }).join("");
+
+  return `<g>${gridPolygons}${axes}<polygon points="${pts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}${axisLabels}</g>`;
+}
+
+function renderKPIChart(rawData: { x: any; y: any }[], color: string): string {
+  if (rawData.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const total = rawData.reduce((s, d) => s + (Number(d.y) || 0), 0);
+  const fmtVal = fmtTick(total);
+  const count = rawData.length;
+  const W = 800, H = 320;
+
+  return `<text x="${W / 2}" y="${H / 2 - 18}" text-anchor="middle" style="fill:${color}" font-size="80" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${H / 2 + 26}" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">${count} records</text>`;
+}
+
 export function getViewBox(chartType: ChartType): string {
-  return chartType === "pie" ? "0 0 620 500" : "0 0 800 320";
+  if (chartType === "pie" || chartType === "doughnut" || chartType === "radar") return "0 0 620 500";
+  return "0 0 800 320";
 }
 
 export const DEFAULT_MULTI_COLORS = [
@@ -449,8 +625,10 @@ export function renderSvgChart(
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
   if (yFields && yFields.length > 1) {
     const multi = rawData as Record<string, any>[];
-    if (chartType === "bar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors);
-    if (chartType === "pie") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
+    if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors);
+    if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
+    if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
+    if (chartType === "radar") return renderRadarChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
     return renderMultiSeriesLineChart(multi, yFields, resolvedColors);
   }
   // Normalize single-series data: map {x, [field]: val} → {x, y: val}
@@ -458,6 +636,10 @@ export function renderSvgChart(
     ? rawData.map(d => ({ x: d.x, y: d[yFields[0]] }))
     : rawData as { x: any; y: any }[];
   if (chartType === "bar") return renderBarChart(single, resolvedColors);
+  if (chartType === "hbar") return renderHBarChart(single, resolvedColors);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
+  if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors);
+  if (chartType === "radar") return renderRadarChart(single, resolvedColors[0]);
+  if (chartType === "kpi") return renderKPIChart(single, color);
   return renderLineChart(single, resolvedColors[0]);
 }

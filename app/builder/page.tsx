@@ -21,6 +21,30 @@ const PieIcon = () => (
     <path d="M12 2v10l7.4 4.3"/><circle cx="12" cy="12" r="10"/>
   </svg>
 );
+const HBarIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="10" height="4" rx="0.6"/><rect x="3" y="10" width="16" height="4" rx="0.6"/><rect x="3" y="16" width="7" height="4" rx="0.6"/>
+  </svg>
+);
+const DoughnutIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="7"/>
+  </svg>
+);
+const RadarIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12,2 20,7.5 20,16.5 12,22 4,16.5 4,7.5"/>
+    <line x1="12" y1="2" x2="12" y2="12"/><line x1="20" y1="7.5" x2="12" y2="12"/>
+    <line x1="20" y1="16.5" x2="12" y2="12"/><line x1="12" y1="22" x2="12" y2="12"/>
+    <line x1="4" y1="16.5" x2="12" y2="12"/><line x1="4" y1="7.5" x2="12" y2="12"/>
+  </svg>
+);
+const KPIIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="4"/>
+    <text x="12" y="17" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui,sans-serif">9</text>
+  </svg>
+);
 const ChevronIcon = ({ open }: { open: boolean }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
     style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
@@ -40,10 +64,18 @@ const TrashIcon = () => (
 );
 
 const CHART_TYPES: { value: ChartType; title: string; Icon: () => React.ReactElement }[] = [
-  { value: "line", title: "Line", Icon: LineIcon },
-  { value: "bar",  title: "Bar",  Icon: BarIcon  },
-  { value: "pie",  title: "Pie",  Icon: PieIcon  },
+  { value: "bar",      title: "Bar",        Icon: BarIcon      },
+  { value: "line",     title: "Line",       Icon: LineIcon     },
+  { value: "pie",      title: "Pie",        Icon: PieIcon      },
+  { value: "hbar",     title: "H-Bar",      Icon: HBarIcon     },
+  { value: "doughnut", title: "Doughnut",   Icon: DoughnutIcon },
+  { value: "radar",    title: "Radar",      Icon: RadarIcon    },
+  { value: "kpi",      title: "KPI",        Icon: KPIIcon      },
 ];
+
+function displayType(t: string): string {
+  return t === "rich_text" ? "text" : t;
+}
 
 const PRESETS = [
   "#6366f1","#8b5cf6","#a855f7","#ec4899",
@@ -345,7 +377,7 @@ export default function BuilderPage() {
           {step >= 2 && (
             <div>
               <SLabel>Chart Type</SLabel>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                 {CHART_TYPES.map(({ value, title, Icon }) => (
                   <button key={value} onClick={() => setChartType(value)} title={title} style={{
                     padding: "11px 0", borderRadius: 9, cursor: "pointer",
@@ -369,7 +401,7 @@ export default function BuilderPage() {
                 <SLabel>X Axis</SLabel>
                 <select value={xField} onChange={e => setXField(e.target.value)} style={inputStyle as any}>
                   <option value="">Select field</option>
-                  {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                  {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({displayType(p.type)})</option>)}
                 </select>
               </div>
               <div>
@@ -383,7 +415,7 @@ export default function BuilderPage() {
                         style={{ ...inputStyle as any, flex: 1 }}
                       >
                         <option value="">Select field</option>
-                        {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                        {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({displayType(p.type)})</option>)}
                       </select>
                       <button
                         title="Aggregation"
