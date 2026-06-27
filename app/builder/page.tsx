@@ -41,12 +41,7 @@ const PRESETS = [
   "#22d3ee","#3b82f6","#64748b","#94a3b8",
 ];
 
-type BgMode = "white" | "gray" | "dark";
-const BG_OPTIONS: { id: BgMode; label: string; bg: string; dot: string }[] = [
-  { id: "white", label: "White", bg: "#fff",    dot: "#e5e7eb" },
-  { id: "gray",  label: "Gray",  bg: "#f2f2f7", dot: "#d1d5db" },
-  { id: "dark",  label: "Dark",  bg: "#1c1c1e", dot: "#374151" },
-];
+type BgMode = "light" | "dark";
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -94,7 +89,7 @@ export default function BuilderPage() {
   const [step,            setStep]            = useState(1);
   const [saving,          setSaving]          = useState(false);
   const [saveMsg,         setSaveMsg]         = useState<{ ok: boolean; text: string } | null>(null);
-  const [bgMode,          setBgMode]          = useState<BgMode>("white");
+  const [bgMode,          setBgMode]          = useState<BgMode>("light");
 
   function applyColor(hex: string) {
     if (!validHex(hex)) return;
@@ -214,11 +209,11 @@ export default function BuilderPage() {
   };
   const numInputStyle: React.CSSProperties = { ...inputStyle, width: "100%", textAlign: "center", padding: "8px 4px" };
 
-  const activeBg  = BG_OPTIONS.find(o => o.id === bgMode)!;
-  const isDark    = bgMode === "dark";
+  const isDark         = bgMode === "dark";
+  const previewBg      = isDark ? "#1c1c1e" : "#ffffff";
   const previewCssVars = isDark
     ? { "--bg": "#1c1c1e", "--label": "#6b7280", "--grid": "rgba(255,255,255,0.07)" }
-    : { "--bg": activeBg.bg, "--label": "#6b7280", "--grid": "rgba(0,0,0,0.07)" };
+    : { "--bg": "#ffffff",  "--label": "#6b7280", "--grid": "rgba(0,0,0,0.07)" };
 
   return (
     <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "#f2f2f7" }}>
@@ -486,37 +481,46 @@ export default function BuilderPage() {
             )}
           </div>
 
-          {/* Background switcher */}
+          {/* Dark / Light pill toggle */}
           <div style={{
-            display: "flex", alignItems: "center", gap: 4,
-            background: "rgba(255,255,255,0.8)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(0,0,0,0.08)",
-            borderRadius: 10, padding: "4px 5px",
+            display: "flex", alignItems: "center",
+            background: "#2a2a2e", borderRadius: 999,
+            padding: 4, gap: 2,
           }}>
-            {BG_OPTIONS.map(opt => (
-              <button
-                key={opt.id}
-                onClick={() => setBgMode(opt.id)}
-                title={opt.label}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "5px 10px", borderRadius: 7, border: "none", cursor: "pointer",
-                  background: bgMode === opt.id ? "#fff" : "transparent",
-                  boxShadow: bgMode === opt.id ? "0 1px 4px rgba(0,0,0,0.1)" : "none",
-                  fontSize: 12, fontWeight: 500,
-                  color: bgMode === opt.id ? "#111" : "#6b7280",
-                  transition: "all 0.15s",
-                }}
-              >
-                <div style={{
-                  width: 12, height: 12, borderRadius: 3,
-                  background: opt.bg,
-                  border: `1.5px solid ${opt.dot}`,
-                }} />
-                {opt.label}
-              </button>
-            ))}
+            {/* Dark (moon) */}
+            <button
+              onClick={() => setBgMode("dark")}
+              title="Dark"
+              style={{
+                width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
+                background: isDark ? "rgba(255,255,255,0.15)" : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.2s",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={isDark ? "#fff" : "#888"} stroke="none">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            </button>
+            {/* Light (sun) */}
+            <button
+              onClick={() => setBgMode("light")}
+              title="Light"
+              style={{
+                width: 34, height: 34, borderRadius: "50%", border: "none", cursor: "pointer",
+                background: !isDark ? "rgba(255,255,255,0.15)" : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "background 0.2s",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={!isDark ? "#fff" : "#888"} strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -533,7 +537,7 @@ export default function BuilderPage() {
         {/* Chart canvas */}
         <div style={{
           flex: 1, minHeight: 0, borderRadius: 16,
-          background: activeBg.bg,
+          background: previewBg,
           border: "1px solid rgba(0,0,0,0.07)",
           boxShadow: "0 2px 16px rgba(0,0,0,0.04)",
           display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden",
