@@ -1,18 +1,8 @@
 export const dynamic = "force-dynamic";
 
+import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
 import { fetchChartData } from "@/lib/notionData";
-
-interface Props {
-  searchParams: Promise<{
-    id?: string;
-    databaseId?: string;
-    xField?: string;
-    yField?: string;
-    color?: string;
-    debug?: string;
-  }>;
-}
 
 const CSS = `
   :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
@@ -25,7 +15,6 @@ const CSS = `
     to   { opacity: 1; transform: translateY(0); }
   }
   .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
-
   .lg-pill {
     display: flex; align-items: center; height: 38px; border-radius: 999px; padding: 3px;
     cursor: pointer; user-select: none; touch-action: none;
@@ -119,13 +108,16 @@ const TOGGLE_SCRIPT = `
 })();
 `;
 
-// Client-side chart rendering — uses actual pixel dimensions so labels never scale
 const CHART_SCRIPT = `
 (function(){
   var D=window.__nc_d, C=window.__nc_c;
   if(!D||!C) return;
-  var svg=document.querySelector('.chart-svg');
-  if(!svg) return;
+  var wrap=document.getElementById('nc-wrap');
+  if(!wrap) return;
+  var svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','chart-svg');
+  svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  wrap.insertBefore(svg,wrap.firstChild);
 
   function smartTicks(m){
     if(!m) return [0];
@@ -148,7 +140,7 @@ const CHART_SCRIPT = `
   }
   function noData(W,H){ return '<text style="fill:var(--label)" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">No data</text>'; }
 
-  var F=11; // fixed label font-size in px — never scales with container
+  var F=11;
 
   function line(data,color,W,H){
     var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
@@ -164,7 +156,6 @@ const CHART_SCRIPT = `
     var ticks=smartTicks(maxY), yR=ticks[ticks.length-1]||1;
     var sx=function(i){return s.length>1?i/(s.length-1)*iW:iW/2;};
     var sy=function(v){return iH-(v/yR)*iH;};
-    // Y axis
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
       var y=sy(v); if(y<-2||y>iH+2) return;
@@ -173,7 +164,6 @@ const CHART_SCRIPT = `
       yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';
       yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';
     });
-    // X axis
     var tgt=Math.max(2,Math.floor(iW/(F*5))), eff=Math.min(tgt,s.length);
     var stp=Math.max(1,Math.floor((s.length-1)/Math.max(1,eff-1)));
     var idx={};
@@ -253,9 +243,8 @@ const CHART_SCRIPT = `
   }
 
   function dims(){
-    var p=svg.parentElement||svg;
-    var r=p.getBoundingClientRect();
-    return [r.width||p.offsetWidth||window.innerWidth, r.height||p.offsetHeight||window.innerHeight];
+    var r=wrap.getBoundingClientRect();
+    return [r.width||wrap.offsetWidth||window.innerWidth, r.height||wrap.offsetHeight||window.innerHeight];
   }
 
   var first=true;
@@ -272,23 +261,55 @@ const CHART_SCRIPT = `
     first=false;
   }
 
-  if(typeof ResizeObserver!=='undefined') new ResizeObserver(render).observe(svg.parentElement||svg);
+  if(typeof ResizeObserver!=='undefined') new ResizeObserver(render).observe(wrap);
   requestAnimationFrame(render);
 })();
 `;
 
-export default async function EmbedPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const { id, debug } = params;
-  const isDebug = debug === "1";
+const CONTROLS_HTML = `
+<div class="lg-controls">
+  <div class="lg-pill">
+    <div class="lg-bubble"></div>
+    <button id="moonBtn" class="lg-opt" title="Dark mode">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <button id="sunBtn" class="lg-opt" title="Light mode">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="4.5"/>
+        <line x1="12" y1="2" x2="12" y2="4.5"/>
+        <line x1="12" y1="19.5" x2="12" y2="22"/>
+        <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
+        <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
+        <line x1="2" y1="12" x2="4.5" y2="12"/>
+        <line x1="19.5" y1="12" x2="22" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
+        <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+  </div>
+  <button id="refreshBtn" class="lg-refresh" title="Refresh">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+      <polyline points="23 4 23 10 17 10"/>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  </button>
+</div>
+`;
 
-  let databaseId = params.databaseId || "";
-  let xField     = params.xField     || "";
-  let yField     = params.yField     || "";
-  let color      = params.color      || "#6366f1";
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl;
+  const id      = searchParams.get("id")         || "";
+  const isDebug = searchParams.get("debug") === "1";
+
+  let databaseId = searchParams.get("databaseId") || "";
+  let xField     = searchParams.get("xField")     || "";
+  let yField     = searchParams.get("yField")     || "";
+  let color      = searchParams.get("color")      || "#6366f1";
   let chartType: "line" | "bar" | "pie" = "line";
   let colorMode: "single" | "multi"     = "single";
-  let colors: string[] | undefined;
+  let colors: string[] = [];
   let kvStatus = "skipped";
 
   if (id) {
@@ -321,73 +342,51 @@ export default async function EmbedPage({ searchParams }: Props) {
     errorMsg = e.message;
   }
 
-  // Escape </script> sequences so they can't break out of inline script tags
   const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, "<\\/");
 
   const DATA_SCRIPT = `window.__nc_d=${safe(data)};window.__nc_c=${safe({
     chartType,
     colorMode,
     color,
-    colors: colors ?? [],
+    colors,
     error: errorMsg || null,
   })};`;
 
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <script dangerouslySetInnerHTML={{ __html: INIT_SCRIPT }} />
-      <div className="wrap">
-        {/* SVG starts empty — client JS renders and re-renders on resize */}
-        <svg className="chart-svg" xmlns="http://www.w3.org/2000/svg" />
+  const debugPanel = isDebug ? `
+<div style="position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.92);color:#0f0;font-family:monospace;font-size:12px;padding:8px 12px;line-height:1.8;z-index:99999;">
+  <b>id:</b> ${id || "(none)"} &nbsp;|&nbsp;
+  <b>kv:</b> ${kvStatus} &nbsp;|&nbsp;
+  <b>color:</b> ${color} &nbsp;|&nbsp;
+  <b>db:</b> ${databaseId ? databaseId.slice(0, 8) + "…" : "(none)"}
+</div>` : "";
 
-        <div className="lg-controls">
-          <div className="lg-pill">
-            <div className="lg-bubble" />
-            <button id="moonBtn" className="lg-opt" title="Dark mode">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            </button>
-            <button id="sunBtn" className="lg-opt" title="Light mode">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="4.5"/>
-                <line x1="12" y1="2" x2="12" y2="4.5"/>
-                <line x1="12" y1="19.5" x2="12" y2="22"/>
-                <line x1="4.22" y1="4.22" x2="5.88" y2="5.88"/>
-                <line x1="18.12" y1="18.12" x2="19.78" y2="19.78"/>
-                <line x1="2" y1="12" x2="4.5" y2="12"/>
-                <line x1="19.5" y1="12" x2="22" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.88" y2="18.12"/>
-                <line x1="18.12" y1="5.88" x2="19.78" y2="4.22"/>
-              </svg>
-            </button>
-          </div>
-          <button id="refreshBtn" className="lg-refresh" title="Refresh">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-          </button>
-        </div>
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chart</title>
+<style>${CSS}</style>
+<script>${INIT_SCRIPT}</script>
+</head>
+<body>
+<div class="wrap" id="nc-wrap">
+${CONTROLS_HTML}
+${debugPanel}
+</div>
+<script>${DATA_SCRIPT}</script>
+<script>${TOGGLE_SCRIPT}</script>
+<script>${CHART_SCRIPT}</script>
+</body>
+</html>`;
 
-        {isDebug && (
-          <div style={{
-            position:"fixed", top:0, left:0, right:0,
-            background:"rgba(0,0,0,0.92)", color:"#0f0",
-            fontFamily:"monospace", fontSize:12, padding:"8px 12px",
-            lineHeight:1.8, zIndex:99999,
-          }}>
-            <b>id:</b> {id || "(none)"} &nbsp;|&nbsp;
-            <b>kv:</b> {kvStatus} &nbsp;|&nbsp;
-            <b>color:</b> {color} &nbsp;|&nbsp;
-            <b>db:</b> {databaseId ? databaseId.slice(0,8)+"…" : "(none)"}
-          </div>
-        )}
-      </div>
-
-      <script dangerouslySetInnerHTML={{ __html: DATA_SCRIPT }} />
-      <script dangerouslySetInnerHTML={{ __html: TOGGLE_SCRIPT }} />
-      <script dangerouslySetInnerHTML={{ __html: CHART_SCRIPT }} />
-    </>
-  );
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Frame-Options": "ALLOWALL",
+      "Content-Security-Policy": "frame-ancestors *",
+    },
+  });
 }
