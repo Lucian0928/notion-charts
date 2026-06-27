@@ -391,17 +391,16 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* Chart preview — dark "screen" aesthetic with refined edges */}
+                {/* Chart preview */}
                 <div style={{
                   margin: "0 12px 12px",
                   borderRadius: 10,
                   overflow: "hidden",
-                  background: "#1c1c1e",
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.12) inset",
-                  ["--bg" as any]: "#1c1c1e",
+                  background: "var(--bg)",
+                  border: "1px solid rgba(0,0,0,0.07)",
+                  ["--bg" as any]: "#f2f2f7",
                   ["--label" as any]: "#6b7280",
-                  ["--grid" as any]: "rgba(255,255,255,0.07)",
+                  ["--grid" as any]: "rgba(0,0,0,0.07)",
                 }}>
                   {data ? (
                     <svg
