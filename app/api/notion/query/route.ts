@@ -65,6 +65,57 @@ function extractValue(prop: any): string | number | null {
   }
 }
 
+// Use pages.properties.retrieve() for rollup fields — this forces Notion to
+// compute the aggregation over ALL related records, bypassing the 25-record
+// truncation that databases.query() applies to relation-backed rollups.
+async function retrieveRollupValue(
+  notion: any,
+  pageId: string,
+  propertyId: string,
+): Promise<number | null> {
+  try {
+    const item: any = await notion.pages.properties.retrieve({
+      page_id: pageId,
+      property_id: propertyId,
+    });
+
+    // Non-paginated rollup (number/date result from sum, average, etc.)
+    if (item.type === "rollup") {
+      const r = item.rollup;
+      if (r?.type === "number") return r.number ?? null;
+    }
+
+    // Paginated rollup (show_original / show_unique) — sum numeric items
+    if (item.object === "list" && Array.isArray(item.results)) {
+      let cursor = item.next_cursor;
+      const results = [...item.results];
+
+      while (cursor) {
+        const next: any = await notion.pages.properties.retrieve({
+          page_id: pageId,
+          property_id: propertyId,
+          start_cursor: cursor,
+        });
+        results.push(...(next.results ?? []));
+        cursor = next.has_more ? next.next_cursor : null;
+      }
+
+      const nums = results
+        .map((r: any) => {
+          if (r.type === "number") return r.number;
+          if (r.type === "rollup") return r.rollup?.number ?? null;
+          return extractValue(r);
+        })
+        .filter((v: any) => typeof v === "number");
+
+      return nums.length > 0 ? nums.reduce((a: number, b: number) => a + b, 0) : null;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   const token =
     req.headers.get("x-notion-token") || process.env.NOTION_CHARTS_TOKEN;
@@ -95,15 +146,28 @@ export async function GET(req: NextRequest) {
       cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined;
     } while (cursor);
 
-    const data = pages
-      .map((page: any) => {
+    // Detect if the y-field is a rollup so we can use retrieve() instead
+    const yIsRollup = pages.length > 0 && pages[0].properties[yField]?.type === "rollup";
+
+    const data = await Promise.all(
+      pages.map(async (page: any) => {
         const x = extractValue(page.properties[xField]);
-        const y = extractValue(page.properties[yField]);
+        let y: string | number | null;
+
+        if (yIsRollup) {
+          const propId = page.properties[yField]?.id;
+          const retrieved = propId ? await retrieveRollupValue(notion, page.id, propId) : null;
+          y = retrieved ?? extractValue(page.properties[yField]);
+        } else {
+          y = extractValue(page.properties[yField]);
+        }
+
         return { x, y };
       })
-      .filter((d) => d.x !== null && d.y !== null);
+    );
 
-    return NextResponse.json({ data });
+    const filtered = data.filter((d) => d.x !== null && d.y !== null);
+    return NextResponse.json({ data: filtered });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
