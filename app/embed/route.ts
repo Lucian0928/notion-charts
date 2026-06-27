@@ -133,13 +133,7 @@ const CHART_SCRIPT = `
     return t;
   }
   function fmt(v){ if(Number.isInteger(v)) return String(v); var r=Math.round(v*1000)/1000; return r%1===0?String(r):r.toFixed(r<0.1?3:r<1?2:1); }
-  function dateFmt(xs){
-    var ds=[];xs.forEach(function(s){var d=new Date(s);if(!isNaN(d.getTime()))ds.push(d);});
-    if(!ds.length) return 'my';
-    var yrs={};ds.forEach(function(d){yrs[d.getFullYear()]=1;});
-    return Object.keys(yrs).length>1?'my':'md';
-  }
-  function lbl(s,df){ var d=new Date(s); if(isNaN(d.getTime())) return s; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; if(df==='my') return mo[d.getMonth()]+" '"+String(d.getFullYear()).slice(2); return mo[d.getMonth()]+' '+d.getDate(); }
+  function lbl(s){ var d=new Date(s); if(isNaN(d.getTime())) return s; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return mo[d.getMonth()]+' '+String(d.getDate()).padStart(2,'0')+', '+String(d.getFullYear()).slice(2); }
   function smooth(pts){
     if(!pts.length) return ''; if(pts.length===1) return 'M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1);
     if(pts.length===2) return 'M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1)+' L'+pts[1][0].toFixed(1)+','+pts[1][1].toFixed(1);
@@ -158,8 +152,7 @@ const CHART_SCRIPT = `
     var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
     if(!s.length) return noData(W,H);
     var lp=56,rp=12,tp=14;
-    var df=dateFmt(s.map(function(d){return String(d.x);}));
-    var ls=s.map(function(d){return lbl(String(d.x),df);});
+    var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var rot=mll*(F*0.6)>(W-lp-rp)/Math.max(s.length,1)-4;
     var bp=rot?Math.ceil(mll*F*0.6*0.707)+8:F+14;
@@ -169,7 +162,7 @@ const CHART_SCRIPT = `
     var ticks=smartTicks(maxY), yR=ticks[ticks.length-1]||1;
     var sx=function(i){return s.length>1?i/(s.length-1)*iW:iW/2;};
     var sy=function(v){return iH-(v/yR)*iH;};
-    state={type:'line',s:s,lp:lp,tp:tp,iW:iW,iH:iH,yR:yR,df:df};
+    state={type:'line',s:s,lp:lp,tp:tp,iW:iW,iH:iH,yR:yR};
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
       var y=sy(v); if(y<-2||y>iH+2) return;
@@ -194,7 +187,7 @@ const CHART_SCRIPT = `
     var pts=s.map(function(d,i){return[sx(i),sy(+d.y)];});
     var ln=smooth(pts);
     var area=ln+' L'+sx(s.length-1).toFixed(1)+','+iH+' L'+sx(0).toFixed(1)+','+iH+' Z';
-    var dots=s.length<=200?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d.y).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+color+'" stroke-width="1.8"/>';}).join(''):'';
+    var dots=s.length<=40?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d.y).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+color+'" stroke-width="1.8"/>';}).join(''):'';
     return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+'<path d="'+area+'" fill="'+color+'" fill-opacity="0.18"/><path d="'+ln+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linejoin="round"/>'+dots+xl+yl+'</g>';
   }
 
@@ -202,8 +195,7 @@ const CHART_SCRIPT = `
     var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
     var n=s.length; if(!n) return noData(W,H);
     var lp=56,rp=12,tp=14;
-    var df=dateFmt(s.map(function(d){return String(d.x);}));
-    var ls=s.map(function(d){return lbl(String(d.x),df);});
+    var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var rot=mll*(F*0.6)>(W-lp-rp)/n-4;
     var bp=rot?Math.ceil(mll*F*0.6*0.707)+8:F+14;
@@ -233,7 +225,7 @@ const CHART_SCRIPT = `
       if(rot) xl+='<text transform="translate('+cx+','+(iH+F)+') rotate(-45)" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
       else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
-    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW,df:df};
+    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
     return '<g transform="translate('+lp+','+tp+')">'+ yg+bars+xl+yl+'</g>';
   }
 
@@ -259,7 +251,7 @@ const CHART_SCRIPT = `
     return '<g>'+sl+lb+'</g>';
   }
 
-  // Tooltip handlers
+  // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
   svg.addEventListener('mousemove',function(e){
     if(!state){tip.style.opacity='0';return;}
     var r=svg.getBoundingClientRect();
@@ -268,18 +260,18 @@ const CHART_SCRIPT = `
     var ty=Math.max(e.clientY-36,8);
     if(state.type==='line'){
       var n=state.s.length; if(!n){tip.style.opacity='0';return;}
+      // Show tooltip anywhere in chart area, snapping to nearest point by X
+      if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
       var idx=Math.max(0,Math.min(n-1,Math.round((vx-state.lp)/state.iW*(n-1))));
       var d=state.s[idx];
-      var px=state.lp+(n>1?idx/(n-1)*state.iW:state.iW/2);
-      var py=state.tp+state.iH-(+d.y/state.yR)*state.iH;
-      if(Math.sqrt((vx-px)*(vx-px)+(vy-py)*(vy-py))>60){tip.style.opacity='0';return;}
-      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x),state.df)+'</span>  '+fmt(+d.y);
+      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+fmt(+d.y);
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='bar'){
+      if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
       var idx=Math.floor((vx-state.lp)/state.slW);
       if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
       var d=state.s[idx];
-      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x),state.df)+'</span>  '+fmt(+d.y);
+      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+fmt(+d.y);
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.W/2,dy=vy-state.H/2;

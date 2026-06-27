@@ -1,18 +1,11 @@
 import type { ChartType } from "./types";
 
-function chooseDateFmt(dates: string[]): 'my' | 'md' {
-  const parsed = dates.map(s => new Date(s)).filter(d => !isNaN(d.getTime()));
-  if (!parsed.length) return 'my';
-  const years = new Set(parsed.map(d => d.getFullYear()));
-  return years.size > 1 ? 'my' : 'md';
-}
-
-export function formatDateLabel(dateStr: string, fmt: 'my' | 'md' = 'my'): string {
+export function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr);
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  if (fmt === 'my') return `${months[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`;
-  return `${months[d.getMonth()]} ${d.getDate()}`;
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${months[d.getMonth()]} ${day}, ${String(d.getFullYear()).slice(2)}`;
 }
 
 // Catmull-Rom spline → cubic bezier SVG path
@@ -72,8 +65,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string): string {
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   // Decide X rotation before setting padding
-  const dfmt = chooseDateFmt(data.map(d => String(d.x)));
-  const xLabels = data.map((d) => formatDateLabel(String(d.x), dfmt));
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
   const approxIW = W - 56 - 12;
   const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
@@ -160,8 +152,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[]): string
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const n = data.length;
-  const dfmt = chooseDateFmt(data.map(d => String(d.x)));
-  const xLabels = data.map((d) => formatDateLabel(String(d.x), dfmt));
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
   // Decide rotation before setting padding so bottom space is accurate
   const approxSlotW = (W - 56 - 12) / n;
