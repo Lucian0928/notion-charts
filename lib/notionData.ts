@@ -159,3 +159,25 @@ export async function fetchChartData(
     }))
     .filter((d) => d.x !== null && d.y !== null);
 }
+
+export async function fetchChartDataMulti(
+  token: string,
+  databaseId: string,
+  xField: string,
+  yFields: string[],
+): Promise<Record<string, any>[]> {
+  const seriesData = await Promise.all(
+    yFields.map((yf) => fetchChartData(token, databaseId, xField, yf))
+  );
+  const byX: Record<string, Record<string, any>> = {};
+  for (let i = 0; i < yFields.length; i++) {
+    for (const point of seriesData[i]) {
+      const key = String(point.x);
+      if (!byX[key]) byX[key] = { x: point.x };
+      byX[key][yFields[i]] = point.y;
+    }
+  }
+  return Object.values(byX).sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+}

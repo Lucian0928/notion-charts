@@ -8,6 +8,7 @@ export interface ChartConfig {
   chartType: ChartType;
   xField: string;
   yField: string;
+  yFields?: string[];
   color: string;
   colorMode?: "single" | "multi";
   colors?: string[];

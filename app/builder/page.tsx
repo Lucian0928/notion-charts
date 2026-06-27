@@ -27,6 +27,17 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
     <polyline points="6 9 12 15 18 9"/>
   </svg>
 );
+const GearIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+  </svg>
+);
 
 const CHART_TYPES: { value: ChartType; title: string; Icon: () => React.ReactElement }[] = [
   { value: "line", title: "Line", Icon: LineIcon },
@@ -76,12 +87,12 @@ export default function BuilderPage() {
   const [multiColors,     setMultiColors]     = useState<string[]>(DEFAULT_MULTI_COLORS);
   const [hoveredColorIdx, setHoveredColorIdx] = useState<number | null>(null);
   const [xField,          setXField]          = useState("");
-  const [yField,          setYField]          = useState("");
+  const [yFields,         setYFields]         = useState<string[]>([""]);
   const [chartName,       setChartName]       = useState("");
   const [color,           setColor]           = useState(PRESETS[0]);
   const [hexInput,        setHexInput]        = useState(PRESETS[0]);
   const [rgb,             setRgb]             = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
-  const [previewData,     setPreviewData]     = useState<{ x: any; y: any }[]>([]);
+  const [previewData,     setPreviewData]     = useState<any[]>([]);
   const [previewError,    setPreviewError]    = useState<string | null>(null);
   const [previewQueried,  setPreviewQueried]  = useState(false);
   const [loadingDbs,      setLoadingDbs]      = useState(false);
@@ -134,23 +145,32 @@ export default function BuilderPage() {
     setMultiColors(chart.colors?.length ? chart.colors : DEFAULT_MULTI_COLORS);
     applyColor(chart.color || PRESETS[0]);
     setXField(chart.xField || "");
-    setYField(chart.yField || "");
+    const loadedYFields = chart.yFields?.length ? chart.yFields : [chart.yField || ""];
+    setYFields(loadedYFields);
     const db = dbs.find(d => d.id === chart.databaseId);
     if (!db) return;
     setSelectedDb(db);
+    const yParam = loadedYFields.length > 1
+      ? `yFields=${loadedYFields.map(encodeURIComponent).join(",")}`
+      : `yField=${encodeURIComponent(loadedYFields[0])}`;
     const [sr, pr] = await Promise.all([
       fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": t } }),
-      fetch(`/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&yField=${encodeURIComponent(chart.yField)}`, { headers: { "x-notion-token": t } }),
+      fetch(`/api/notion/query?databaseId=${db.id}&xField=${encodeURIComponent(chart.xField)}&${yParam}`, { headers: { "x-notion-token": t } }),
     ]);
     const [sj, pj] = await Promise.all([sr.json(), pr.json()]);
     setProperties(sj.properties || []);
-    setPreviewData(pj.data || []);
+    const rawData = pj.data || [];
+    if (loadedYFields.length === 1 && rawData[0] && "y" in rawData[0]) {
+      setPreviewData(rawData.map((d: any) => ({ x: d.x, [loadedYFields[0]]: d.y })));
+    } else {
+      setPreviewData(rawData);
+    }
     setPreviewQueried(true);
     setStep(3);
   }
 
   async function handleSelectDb(db: NotionDatabase) {
-    setSelectedDb(db); setXField(""); setYField(""); setPreviewData([]);
+    setSelectedDb(db); setXField(""); setYFields([""]); setPreviewData([]);
     setDbOpen(false);
     const res  = await fetch(`/api/notion/schema?databaseId=${db.id}`, { headers: { "x-notion-token": token } });
     const json = await res.json();
@@ -159,10 +179,12 @@ export default function BuilderPage() {
   }
 
   async function handlePreview() {
-    if (!selectedDb || !xField || !yField) return;
+    const validYFields = yFields.filter(Boolean);
+    if (!selectedDb || !xField || validYFields.length === 0) return;
     setLoadingPrev(true); setPreviewError(null); setPreviewQueried(true);
     try {
-      const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&yField=${encodeURIComponent(yField)}`, { headers: { "x-notion-token": token } });
+      const yParam = `yFields=${validYFields.map(encodeURIComponent).join(",")}`;
+      const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&${yParam}`, { headers: { "x-notion-token": token } });
       const json = await res.json();
       if (json.error) { setPreviewError(json.error); setPreviewData([]); }
       else {
@@ -177,8 +199,9 @@ export default function BuilderPage() {
   async function handleSave() {
     setSaving(true); setSaveMsg(null);
     try {
-      const name   = chartName || `${selectedDb!.name} - ${yField}`;
-      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField, color, colorMode, colors: multiColors, createdAt: Date.now() };
+      const validYFields = yFields.filter(Boolean);
+      const name   = chartName || `${selectedDb!.name} - ${validYFields[0] || "Chart"}`;
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, color, colorMode, colors: multiColors, createdAt: Date.now() };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
       if (editId) {
         const updated = existing.map(c => c.id === editId ? { ...c, ...config } : c);
@@ -265,7 +288,7 @@ export default function BuilderPage() {
             <input
               value={chartName}
               onChange={e => setChartName(e.target.value)}
-              placeholder={selectedDb && yField ? `${selectedDb.name} - ${yField}` : "My Chart"}
+              placeholder={selectedDb && yFields[0] ? `${selectedDb.name} - ${yFields[0]}` : "My Chart"}
               style={inputStyle}
             />
           </div>
@@ -346,15 +369,58 @@ export default function BuilderPage() {
               </div>
               <div>
                 <SLabel>Y Axis</SLabel>
-                <select value={yField} onChange={e => setYField(e.target.value)} style={inputStyle as any}>
-                  <option value="">Select field</option>
-                  {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
-                </select>
+                {yFields.map((yf, i) => (
+                  <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+                    <select
+                      value={yf}
+                      onChange={e => { const next = [...yFields]; next[i] = e.target.value; setYFields(next); }}
+                      style={{ ...inputStyle as any, flex: 1 }}
+                    >
+                      <option value="">Select field</option>
+                      {properties.map(p => <option key={p.id} value={p.name}>{p.name} ({p.type})</option>)}
+                    </select>
+                    {i === 0 ? (
+                      <button title="Field settings" style={{
+                        width: 34, height: 34, flexShrink: 0, borderRadius: 8,
+                        border: "1px solid #e5e7eb", background: "#f9fafb",
+                        color: "#9ca3af", cursor: "default",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <GearIcon />
+                      </button>
+                    ) : (
+                      <button
+                        title="Remove"
+                        onClick={() => setYFields(yFields.filter((_, j) => j !== i))}
+                        style={{
+                          width: 34, height: 34, flexShrink: 0, borderRadius: 8,
+                          border: "1px solid rgba(239,68,68,0.25)",
+                          background: "rgba(239,68,68,0.05)", color: "#ef4444",
+                          cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => setYFields([...yFields, ""])}
+                  style={{
+                    width: "100%", padding: "8px 0", borderRadius: 8,
+                    fontSize: 12, fontWeight: 500, cursor: "pointer",
+                    background: "transparent", border: "1.5px dashed #d1d5db",
+                    color: "#9ca3af",
+                  }}
+                >
+                  + Add column
+                </button>
               </div>
-              <button onClick={handlePreview} disabled={!xField || !yField || loadingPrev} style={{
+              <button onClick={handlePreview} disabled={!xField || !yFields[0] || loadingPrev} style={{
                 padding: "9px 0", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer",
                 background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#3b82f6",
-                opacity: (!xField || !yField || loadingPrev) ? 0.5 : 1,
+                opacity: (!xField || !yFields[0] || loadingPrev) ? 0.5 : 1,
               }}>
                 {loadingPrev ? "Loading..." : "Preview"}
               </button>
@@ -572,7 +638,7 @@ export default function BuilderPage() {
               preserveAspectRatio="xMidYMid meet"
               style={{ width: "100%", height: "100%", display: "block" }}
               xmlns="http://www.w3.org/2000/svg"
-              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color, chartType, colorMode === "multi" ? multiColors : undefined) }}
+              dangerouslySetInnerHTML={{ __html: renderSvgChart(previewData, color, chartType, colorMode === "multi" ? multiColors : undefined, yFields.filter(Boolean)) }}
             />
           ) : (
             <div style={{ textAlign: "center", color: isDark ? "#4b5563" : "#9ca3af" }}>

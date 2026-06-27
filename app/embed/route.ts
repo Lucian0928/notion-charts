@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
-import { fetchChartData } from "@/lib/notionData";
+import { fetchChartData, fetchChartDataMulti } from "@/lib/notionData";
 
 const CSS = `
   :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
@@ -270,14 +270,16 @@ const CHART_SCRIPT = `
       if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
       var idx=Math.max(0,Math.min(n-1,Math.round((vx-state.lp)/state.iW*(n-1))));
       var d=state.s[idx];
-      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+fmt(+d.y);
+      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  '):fmt(+d.y);
+      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='bar'){
       if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
       var idx=Math.floor((vx-state.lp)/state.slW);
       if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
       var d=state.s[idx];
-      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+fmt(+d.y);
+      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  '):fmt(+d.y);
+      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.W/2,dy=vy-state.H/2;
@@ -303,14 +305,75 @@ const CHART_SCRIPT = `
     return [r.width||wrap.offsetWidth||window.innerWidth, r.height||wrap.offsetHeight||window.innerHeight];
   }
 
+  function lineMulti(data,yFields,colors,W,H){
+    var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
+    if(!s.length) return noData(W,H);
+    var lp=56,rp=12,tp=22,F=11;
+    var ls=s.map(function(d){return lbl(String(d.x));});
+    var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
+    var rot=mll*(F*0.6)>(W-lp-rp)/Math.max(s.length,1)-4;
+    var xF=F; if(rot){var xFmax=Math.floor(lp*1.414/(mll*0.65+1));xF=Math.max(6,Math.min(F,xFmax));}
+    var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
+    var iW=W-lp-rp,iH=H-tp-bp;
+    if(iW<20||iH<20) return '';
+    var allY=[];s.forEach(function(d){yFields.forEach(function(yf){allY.push(+d[yf]||0);});});
+    var maxY=Math.max.apply(null,allY)||1;
+    var ticks=smartTicks(maxY),yR=ticks[ticks.length-1]||1;
+    var sx=function(i){return s.length>1?i/(s.length-1)*iW:iW/2;};
+    var sy=function(v){return iH-(v/yR)*iH;};
+    state={type:'line',s:s,lp:lp,tp:tp,iW:iW,iH:iH,yR:yR,yFields:yFields};
+    var minG=F+4,lastY=9999,yg='',yl='';
+    ticks.forEach(function(v){var y=sy(v);if(y<-2||y>iH+2)return;if(Math.abs(y-lastY)<minG&&v!==ticks[0])return;lastY=y;yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
+    var tgt=Math.max(2,Math.floor(iW/(F*5))),eff=Math.min(tgt,s.length),stp=Math.max(1,Math.floor((s.length-1)/Math.max(1,eff-1))),idx={};
+    for(var k=0;k<eff;k++) idx[Math.min(k*stp,s.length-1)]=1; idx[s.length-1]=1;
+    var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;}),xg='',xl='';
+    idxs.forEach(function(i){var x=sx(i).toFixed(1);xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';if(rot)xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';});
+    var seriesSvg=yFields.map(function(yf,si){var c=colors[si%colors.length];var pts=s.map(function(d,i){return[sx(i),sy(+d[yf]||0)];});var ln=smooth(pts);var area=ln+' L'+sx(s.length-1).toFixed(1)+','+iH+' L'+sx(0).toFixed(1)+','+iH+' Z';var dots=s.length<=40?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d[yf]||0).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+c+'" stroke-width="1.8"/>';}).join(''):'';return'<path d="'+area+'" fill="'+c+'" fill-opacity="0.08"/><path d="'+ln+'" fill="none" stroke="'+c+'" stroke-width="2.2" stroke-linejoin="round"/>'+dots;}).join('');
+    var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><circle cx="6" cy="0" r="3.5" fill="'+c+'"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
+    return'<g transform="translate('+lp+','+tp+')">'+yg+xg+seriesSvg+xl+yl+legend+'</g>';
+  }
+
+  function barMulti(data,yFields,colors,W,H){
+    var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
+    var n=s.length; if(!n) return noData(W,H);
+    var lp=56,rp=12,tp=22,F=11,nS=yFields.length;
+    var ls=s.map(function(d){return lbl(String(d.x));});
+    var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
+    var rot=mll*(F*0.6)>(W-lp-rp)/n-4;
+    var xF=F; if(rot){var xFmax=Math.floor(lp*1.414/(mll*0.65+1));xF=Math.max(6,Math.min(F,xFmax));}
+    var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
+    var iW=W-lp-rp,iH=H-tp-bp;
+    if(iW<20||iH<20) return '';
+    var allY=[];s.forEach(function(d){yFields.forEach(function(yf){allY.push(+d[yf]||0);});});
+    var maxY=Math.max.apply(null,allY)||1;
+    var ticks=smartTicks(maxY),yR=ticks[ticks.length-1]||1;
+    var slW=iW/n,gPad=Math.min(slW*0.1,4),gW=slW-gPad*2,barGap=2,barW=Math.max(1,(gW-barGap*(nS-1))/nS),rx=Math.min(3,barW*0.25);
+    var sy=function(v){return iH-(v/yR)*iH;};
+    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
+    var bars=s.map(function(d,i){var gx=i*slW+gPad;return yFields.map(function(yf,si){var c=colors[si%colors.length];var bx=gx+si*(barW+barGap);var val=+d[yf]||0;var bh=Math.max(1,(val/yR)*iH);return'<rect x="'+bx.toFixed(1)+'" y="'+(iH-bh).toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'"/>';}).join('');}).join('');
+    var minG=F+4,lastY=9999,yg='',yl='';
+    ticks.forEach(function(v){var y=sy(v);if(y<-2||y>iH+2)return;if(Math.abs(y-lastY)<minG&&v!==ticks[0])return;lastY=y;yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
+    var maxL=Math.max(2,Math.floor(iW/55)),stp=Math.max(1,Math.ceil(n/maxL)),xl='';
+    s.forEach(function(d,i){if(i%stp!==0&&i!==n-1)return;var cx=(i*slW+slW/2).toFixed(1);if(rot)xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';});
+    var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><rect x="0" y="-5" width="9" height="9" rx="2" fill="'+c+'" fill-opacity="0.85"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
+    return'<g transform="translate('+lp+','+tp+')">'+yg+bars+xl+yl+legend+'</g>';
+  }
+
   var first=true;
   function render(){
     var d=dims(), W=d[0], H=d[1];
     if(W<10||H<10){ requestAnimationFrame(render); return; }
     var colors=(C.colorMode==='multi'&&C.colors&&C.colors.length)?C.colors:[C.color||'#6366f1'];
+    var yFs=C.yFields&&C.yFields.length?C.yFields:null;
+    var isMulti=yFs&&yFs.length>1;
+    // For single-series, normalize to {x,y} so existing line/bar/pie functions work
+    var singleData=D;
+    if(!isMulti&&yFs&&yFs.length===1){singleData=D.map(function(p){return{x:p.x,y:p[yFs[0]]};});}
     var html=C.error
       ?'<text style="fill:#f87171" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">'+C.error+'</text>'
-      :C.chartType==='bar'?bar(D,colors,W,H):C.chartType==='pie'?pie(D,colors,W,H):line(D,colors[0],W,H);
+      :C.chartType==='bar'?(isMulti?barMulti(D,yFs,colors,W,H):bar(singleData,colors,W,H))
+      :C.chartType==='pie'?pie(singleData,colors,W,H)
+      :(isMulti?lineMulti(D,yFs,colors,W,H):line(singleData,colors[0],W,H));
     if(!first) svg.style.animation='none';
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
     svg.innerHTML=html;
@@ -362,6 +425,7 @@ export async function GET(req: NextRequest) {
   let databaseId = searchParams.get("databaseId") || "";
   let xField     = searchParams.get("xField")     || "";
   let yField     = searchParams.get("yField")     || "";
+  let yFields: string[] = [];
   let color      = searchParams.get("color")      || "#6366f1";
   let chartType: "line" | "bar" | "pie" = "line";
   let colorMode: "single" | "multi"     = "single";
@@ -377,6 +441,7 @@ export async function GET(req: NextRequest) {
         if (chart.databaseId) databaseId = chart.databaseId;
         if (chart.xField)     xField     = chart.xField;
         if (chart.yField)     yField     = chart.yField;
+        if (chart.yFields?.length) yFields = chart.yFields;
         if (chart.color)      color      = chart.color;
         if (chart.chartType)  chartType  = chart.chartType;
         if (chart.colorMode)  colorMode  = chart.colorMode;
@@ -387,13 +452,20 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  let data: { x: any; y: any }[] = [];
+  const resolvedYFields = yFields.length ? yFields : (yField ? [yField] : []);
+
+  let data: any[] = [];
   let errorMsg = "";
   try {
-    if (!databaseId || !xField || !yField) throw new Error("Missing config");
+    if (!databaseId || !xField || !resolvedYFields.length) throw new Error("Missing config");
     const token = process.env.NOTION_CHARTS_TOKEN;
     if (!token) throw new Error("NOTION_CHARTS_TOKEN not set");
-    data = await fetchChartData(token, databaseId, xField, yField);
+    if (resolvedYFields.length > 1) {
+      data = await fetchChartDataMulti(token, databaseId, xField, resolvedYFields);
+    } else {
+      const single = await fetchChartData(token, databaseId, xField, resolvedYFields[0]);
+      data = single.map(d => ({ x: d.x, [resolvedYFields[0]]: d.y }));
+    }
   } catch (e: any) {
     errorMsg = e.message;
   }
@@ -405,6 +477,7 @@ export async function GET(req: NextRequest) {
     colorMode,
     color,
     colors,
+    yFields: resolvedYFields,
     error: errorMsg || null,
   })};`;
 

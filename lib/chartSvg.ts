@@ -272,6 +272,165 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   return `<g>${slices}${labels}</g>`;
 }
 
+function renderMultiSeriesLineChart(
+  rawData: Record<string, any>[],
+  yFields: string[],
+  colors: string[],
+): string {
+  const data = [...rawData].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+  const W = 800, H = 320;
+  if (data.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const lp = 56, rp = 12, F = 8.5;
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
+  const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
+  const approxIW = W - lp - rp;
+  const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
+  const labelSpacing = approxIW / Math.max(1, approxEffective - 1);
+  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing - 4;
+  const xF = rotateX ? Math.max(5, Math.min(F, Math.floor(lp * 1.414 / (maxLabelLen * 0.65 + 1)))) : F;
+  const pad = { top: 22, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
+
+  const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
+  const maxY = Math.max(...allY, 0);
+  const yTicks = smartTicks(maxY);
+  const yRange = yTicks[yTicks.length - 1] || 1;
+
+  const sx = (i: number) => (data.length > 1 ? i / (data.length - 1) : 0.5) * iW;
+  const sy = (v: number) => iH - (v / yRange) * iH;
+
+  const targetLabels = Math.max(6, Math.round(iW / 38));
+  const effectiveCount = Math.min(targetLabels, data.length);
+  const step = Math.max(1, Math.floor((data.length - 1) / Math.max(1, effectiveCount - 1)));
+  const indices = new Set<number>();
+  for (let k = 0; k < effectiveCount; k++) indices.add(Math.min(k * step, data.length - 1));
+  indices.add(data.length - 1);
+  const sortedIndices = [...indices].sort((a, b) => a - b);
+
+  const xGridLines = sortedIndices.map((i) =>
+    `<line x1="${sx(i).toFixed(1)}" y1="0" x2="${sx(i).toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`
+  ).join("");
+  const xLabelTexts = sortedIndices.map((i) => {
+    const x = sx(i);
+    if (rotateX)
+      return `<text transform="translate(${x.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+  }).join("");
+  const yGridLines = yTicks.map((v) => {
+    const y = sy(v); if (y < -2 || y > iH + 2) return "";
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+  const yLabelTexts = yTicks.map((v) => {
+    const y = sy(v); if (y < -2 || y > iH + 2) return "";
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+  }).join("");
+
+  const seriesSvg = yFields.map((yf, si) => {
+    const c = colors[si % colors.length];
+    const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d[yf]) || 0)]);
+    const linePath = smoothLinePath(pts);
+    const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
+    const dots = data.length <= 200
+      ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d[yf]) || 0).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`).join("")
+      : "";
+    return `<path d="${areaPath}" fill="${c}" fill-opacity="${yFields.length > 1 ? 0.08 : 0.18}"/>
+<path d="${linePath}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>${dots}`;
+  }).join("");
+
+  const legend = yFields.map((yf, si) => {
+    const c = colors[si % colors.length];
+    const label = yf.length > 14 ? yf.slice(0, 13) + "…" : yf;
+    return `<g transform="translate(${si * (iW / yFields.length)},${-10})">
+      <circle cx="6" cy="0" r="3.5" fill="${c}"/>
+      <text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">${label}</text>
+    </g>`;
+  }).join("");
+
+  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${seriesSvg}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+}
+
+function renderMultiSeriesBarChart(
+  rawData: Record<string, any>[],
+  yFields: string[],
+  colors: string[],
+): string {
+  const data = [...rawData].sort((a, b) =>
+    String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
+  );
+  const W = 800, H = 320;
+  if (data.length === 0)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
+
+  const n = data.length, nS = yFields.length;
+  const lp = 56, rp = 12, F = 8.5;
+  const xLabels = data.map((d) => formatDateLabel(String(d.x)));
+  const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
+  const approxSlotW = (W - lp - rp) / n;
+  const rotateX = maxLabelLen * (F * 0.6) > approxSlotW - 4;
+  const xF = rotateX ? Math.max(5, Math.min(F, Math.floor(lp * 1.414 / (maxLabelLen * 0.65 + 1)))) : F;
+  const pad = { top: 22, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
+  const iW = W - pad.left - pad.right;
+  const iH = H - pad.top - pad.bottom;
+
+  const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
+  const maxY = Math.max(...allY, 0);
+  const yTicks = smartTicks(maxY);
+  const yRange = yTicks[yTicks.length - 1] || 1;
+
+  const slotW = iW / n;
+  const groupPad = Math.min(slotW * 0.1, 4);
+  const groupW = slotW - groupPad * 2;
+  const barGap = 2;
+  const barW = Math.max(1, (groupW - barGap * (nS - 1)) / nS);
+  const rx = Math.min(3, barW * 0.25);
+  const sy = (v: number) => iH - (v / yRange) * iH;
+
+  const bars = data.map((d, i) => {
+    const gx = i * slotW + groupPad;
+    return yFields.map((yf, si) => {
+      const c = colors[si % colors.length];
+      const bx = gx + si * (barW + barGap);
+      const val = Number(d[yf]) || 0;
+      const bh = Math.max(1, (val / yRange) * iH);
+      return `<rect x="${bx.toFixed(1)}" y="${(iH - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+    }).join("");
+  }).join("");
+
+  const yGridLines = yTicks.map((v) => {
+    const y = sy(v); if (y < -2 || y > iH + 2) return "";
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+  const yLabelTexts = yTicks.map((v) => {
+    const y = sy(v); if (y < -2 || y > iH + 2) return "";
+    return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
+  }).join("");
+  const maxLabels = Math.max(2, Math.floor(iW / 55));
+  const stepX = Math.max(1, Math.ceil(n / maxLabels));
+  const xLabelTexts = data.map((d, i) => {
+    if (i % stepX !== 0 && i !== n - 1) return "";
+    const cx = i * slotW + slotW / 2;
+    if (rotateX)
+      return `<text transform="translate(${cx.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+  }).join("");
+
+  const legend = yFields.map((yf, si) => {
+    const c = colors[si % colors.length];
+    const label = yf.length > 14 ? yf.slice(0, 13) + "…" : yf;
+    return `<g transform="translate(${si * (iW / yFields.length)},${-10})">
+      <rect x="0" y="-5" width="9" height="9" rx="2" fill="${c}" fill-opacity="0.85"/>
+      <text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">${label}</text>
+    </g>`;
+  }).join("");
+
+  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+}
+
 export function getViewBox(chartType: ChartType): string {
   return chartType === "pie" ? "0 0 620 500" : "0 0 800 320";
 }
@@ -281,13 +440,21 @@ export const DEFAULT_MULTI_COLORS = [
 ];
 
 export function renderSvgChart(
-  rawData: { x: any; y: any }[],
+  rawData: any[],
   color: string,
   chartType: ChartType = "line",
   colors?: string[],
+  yFields?: string[],
 ): string {
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
-  if (chartType === "bar") return renderBarChart(rawData, resolvedColors);
-  if (chartType === "pie") return renderPieChart(rawData, resolvedColors);
-  return renderLineChart(rawData, resolvedColors[0]);
+  if (yFields && yFields.length > 1) {
+    const multi = rawData as Record<string, any>[];
+    if (chartType === "bar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors);
+    if (chartType === "pie") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
+    return renderMultiSeriesLineChart(multi, yFields, resolvedColors);
+  }
+  const single = rawData as { x: any; y: any }[];
+  if (chartType === "bar") return renderBarChart(single, resolvedColors);
+  if (chartType === "pie") return renderPieChart(single, resolvedColors);
+  return renderLineChart(single, resolvedColors[0]);
 }
