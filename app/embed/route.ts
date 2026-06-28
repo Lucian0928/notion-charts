@@ -133,6 +133,7 @@ const CHART_SCRIPT = `
     return t;
   }
   function fmt(v){ if(Number.isInteger(v)) return String(v); var r=Math.round(v*1000)/1000; return r%1===0?String(r):r.toFixed(r<0.1?3:r<1?2:1); }
+  function fmtFull(v,prefix){ var n=Math.round(Math.abs(v)),s='',t=String(n); for(var i=0;i<t.length;i++){if(i>0&&(t.length-i)%3===0)s+=',';s+=t[i];} return(v<0?'-':'')+(prefix||'')+s; }
   function lbl(s){ var d=new Date(s); if(isNaN(d.getTime())) return s; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return mo[d.getMonth()]+' '+String(d.getDate()).padStart(2,'0')+', '+String(d.getFullYear()).slice(2); }
   function smooth(pts){
     if(!pts.length) return ''; if(pts.length===1) return 'M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1);
@@ -313,9 +314,11 @@ const CHART_SCRIPT = `
       var lg=s.sweep>Math.PI?1:0;
       return '<path id="ps'+s.idx+'" d="M'+x1o.toFixed(2)+','+y1o.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2o.toFixed(2)+','+y2o.toFixed(2)+' L'+x1i.toFixed(2)+','+y1i.toFixed(2)+' A'+innerR.toFixed(1)+','+innerR.toFixed(1)+' 0 '+lg+',0 '+x2i.toFixed(2)+','+y2i.toFixed(2)+' Z" fill="'+s.color+'" style="cursor:pointer;transition:transform 0.15s ease;"/>';
     }).join('');
-    // center total
+    // center total with optional currency prefix
+    var prefix=C.yPrefix||'',totalStr=fmtFull(total,prefix);
     var bigF=Math.min(Math.round(R*0.28),32),smF=Math.max(Math.min(Math.round(R*0.12),12),9);
-    var ctr='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35).toFixed(1)+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+fmt(total)+'</text>';
+    if(totalStr.length>10) bigF=Math.round(bigF*0.75); else if(totalStr.length>7) bigF=Math.round(bigF*0.87);
+    var ctr='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35).toFixed(1)+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+totalStr+'</text>';
     ctr+='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35+smF+4).toFixed(1)+'" style="fill:var(--label);opacity:0.55;pointer-events:none" font-size="'+smF+'" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">Total</text>';
     // legend swatch labels (same as pie)
     var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
@@ -342,6 +345,14 @@ const CHART_SCRIPT = `
       lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
     });
     return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+ctr+'</g>';
+  }
+
+  function kpi(data,color,W,H){
+    var total=data.reduce(function(s,d){return s+(+d.y||0);},0);
+    var prefix=C.yPrefix||'',valStr=fmtFull(total,prefix);
+    var cnt=data.length;
+    var fs=valStr.length>14?52:valStr.length>10?64:80;
+    return '<text x="'+(W/2)+'" y="'+(H/2-18)+'" text-anchor="middle" style="fill:'+color+'" font-size="'+fs+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+valStr+'</text><text x="'+(W/2)+'" y="'+(H/2+26)+'" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">'+cnt+' records</text>';
   }
 
   // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
@@ -502,6 +513,7 @@ const CHART_SCRIPT = `
       :C.chartType==='bar'?(yFs?barMulti(D,yFs,colors,W,H):bar(D,colors,W,H))
       :C.chartType==='pie'?pie(D,colors,W,H)
       :C.chartType==='doughnut'?doughnut(D,colors,W,H)
+      :C.chartType==='kpi'?kpi(D,colors[0],W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     pieActive=null;
     if(!first) svg.style.animation='none';
@@ -558,10 +570,11 @@ export async function GET(req: NextRequest) {
   let yFields: string[] = [];
   let yAggregations: string[] = [];
   let color      = searchParams.get("color")      || "#6366f1";
-  let chartType: "line" | "bar" | "pie" | "doughnut" = "line";
+  let chartType: "line" | "bar" | "pie" | "doughnut" | "kpi" = "line";
   let colorMode: "single" | "multi"     = "single";
   let colors: string[] = [];
-  let kvStatus = "skipped";
+  let yPrefix    = "";
+  let kvStatus   = "skipped";
 
   if (id) {
     try {
@@ -578,6 +591,7 @@ export async function GET(req: NextRequest) {
         if (chart.chartType)  chartType  = chart.chartType;
         if (chart.colorMode)  colorMode  = chart.colorMode;
         if (chart.colors && chart.colors.length > 0) colors = chart.colors;
+        if (chart.yPrefix)    yPrefix    = chart.yPrefix;
       } else { kvStatus = "not-found"; }
     } catch (e: any) {
       kvStatus = "error: " + e.message;
@@ -611,6 +625,7 @@ export async function GET(req: NextRequest) {
     color,
     colors,
     yFields: resolvedYFields,
+    yPrefix,
     error: errorMsg || null,
   })};`;
 

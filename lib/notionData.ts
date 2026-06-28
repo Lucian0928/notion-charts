@@ -191,6 +191,49 @@ export function applyAggregation(
   }
 }
 
+const NUMBER_FORMAT_PREFIX: Record<string, string> = {
+  dollar: "$", canadian_dollar: "CA$", singapore_dollar: "S$",
+  euro: "€", pound: "£", yen: "¥", ruble: "₽", rupee: "₹", won: "₩",
+  yuan: "¥", real: "R$", lira: "₺", rupiah: "Rp", franc: "CHF",
+  hong_kong_dollar: "HK$", new_zealand_dollar: "NZ$", rand: "R",
+  new_taiwan_dollar: "NT$", mexican_peso: "MX$", chilean_peso: "CLP$",
+  philippine_peso: "₱", dirham: "AED", colombian_peso: "COP$",
+  riyal: "﷼", ringgit: "RM", leu: "lei", argentine_peso: "ARS$",
+  uruguayan_peso: "UYU", danish_krone: "kr", norwegian_krone: "kr",
+  krona: "kr", zloty: "zł", baht: "฿", forint: "Ft", koruna: "Kč", shekel: "₪",
+};
+
+export async function fetchFieldFormat(
+  token: string,
+  databaseId: string,
+  fieldName: string,
+): Promise<{ prefix: string }> {
+  try {
+    const notion = getNotionClient(token);
+    const db: any = await notion.databases.retrieve({ database_id: databaseId });
+    const prop = db.properties[fieldName];
+    if (!prop) return { prefix: "" };
+
+    if (prop.type === "number") {
+      return { prefix: NUMBER_FORMAT_PREFIX[prop.number?.format ?? ""] ?? "" };
+    }
+    if (prop.type === "rollup") {
+      const { relation_property_name, rollup_property_name } = prop.rollup;
+      const relProp = db.properties[relation_property_name];
+      if (relProp?.type !== "relation") return { prefix: "" };
+      const relatedDbId: string = relProp.relation.database_id;
+      if (!relatedDbId) return { prefix: "" };
+      const relatedDb: any = await notion.databases.retrieve({ database_id: relatedDbId });
+      const targetProp = relatedDb.properties[rollup_property_name];
+      if (targetProp?.type !== "number") return { prefix: "" };
+      return { prefix: NUMBER_FORMAT_PREFIX[targetProp.number?.format ?? ""] ?? "" };
+    }
+    return { prefix: "" };
+  } catch {
+    return { prefix: "" };
+  }
+}
+
 export async function fetchChartDataMulti(
   token: string,
   databaseId: string,

@@ -425,7 +425,7 @@ export default function DashboardPage() {
                           style={{ width: "100%", height: "100%", display: "block" }}
                           xmlns="http://www.w3.org/2000/svg"
                           dangerouslySetInnerHTML={{
-                            __html: renderSvgChart(data, cardColor, ct, colorsForRender, yFieldsForRender, config.startingPoint)
+                            __html: renderSvgChart(data, cardColor, ct, colorsForRender, yFieldsForRender, config.startingPoint, config.yPrefix || "")
                           }}
                         />
                       ) : (

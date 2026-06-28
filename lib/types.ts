@@ -14,6 +14,7 @@ export interface ChartConfig {
   color: string;
   colorMode?: "single" | "multi";
   colors?: string[];
+  yPrefix?: string;
   createdAt: number;
 }
 

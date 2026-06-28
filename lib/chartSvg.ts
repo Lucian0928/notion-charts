@@ -566,7 +566,13 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
   return `<g transform="translate(${lp},${tp})">${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
 }
 
-function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[]): string {
+function fmtCurrency(v: number, prefix: string): string {
+  const n = Math.round(Math.abs(v));
+  const s = n.toLocaleString("en-US");
+  return (v < 0 ? "-" : "") + prefix + s;
+}
+
+function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], prefix = ""): string {
   if (rawData.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
@@ -606,9 +612,10 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[]): s
     return `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${sd.color}"/>`;
   }).join("");
 
-  // Center total text
-  const fmtTotal = fmtTick(total);
-  slices += `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="22" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
+  // Center total text (full number with optional currency prefix)
+  const fmtTotal = fmtCurrency(total, prefix);
+  const centerFontSize = fmtTotal.length > 10 ? 16 : fmtTotal.length > 7 ? 19 : 22;
+  slices += `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="${centerFontSize}" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
 
   // Legend-swatch labels in left/right columns (same as pie)
   const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
@@ -703,16 +710,17 @@ function renderRadarChart(rawData: { x: any; y: any }[], color: string): string 
   return `<g>${gridPolygons}${axes}<polygon points="${pts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}${axisLabels}</g>`;
 }
 
-function renderKPIChart(rawData: { x: any; y: any }[], color: string): string {
+function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = ""): string {
   if (rawData.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const total = rawData.reduce((s, d) => s + (Number(d.y) || 0), 0);
-  const fmtVal = fmtTick(total);
+  const fmtVal = fmtCurrency(total, prefix);
   const count = rawData.length;
   const W = 800, H = 320;
+  const fontSize = fmtVal.length > 14 ? 52 : fmtVal.length > 10 ? 64 : 80;
 
-  return `<text x="${W / 2}" y="${H / 2 - 18}" text-anchor="middle" style="fill:${color}" font-size="80" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${H / 2 + 26}" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">${count} records</text>`;
+  return `<text x="${W / 2}" y="${H / 2 - 18}" text-anchor="middle" style="fill:${color}" font-size="${fontSize}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${H / 2 + 26}" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">${count} records</text>`;
 }
 
 export function getViewBox(chartType: ChartType): string {
@@ -731,13 +739,14 @@ export function renderSvgChart(
   colors?: string[],
   yFields?: string[],
   startingPoint?: number | "auto",
+  prefix = "",
 ): string {
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
   if (yFields && yFields.length > 1) {
     const multi = rawData as Record<string, any>[];
     if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, startingPoint);
     if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
-    if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
+    if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color, prefix);
     if (chartType === "radar") return renderRadarChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
     return renderMultiSeriesLineChart(multi, yFields, resolvedColors, startingPoint);
   }
@@ -747,8 +756,8 @@ export function renderSvgChart(
   if (chartType === "bar") return renderBarChart(single, resolvedColors, startingPoint);
   if (chartType === "hbar") return renderHBarChart(single, resolvedColors, startingPoint);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
-  if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors);
+  if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors, prefix);
   if (chartType === "radar") return renderRadarChart(single, resolvedColors[0]);
-  if (chartType === "kpi") return renderKPIChart(single, color);
+  if (chartType === "kpi") return renderKPIChart(single, color, prefix);
   return renderLineChart(single, resolvedColors[0], startingPoint);
 }

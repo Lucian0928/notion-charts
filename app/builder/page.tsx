@@ -241,7 +241,15 @@ export default function BuilderPage() {
       const name   = chartName || `${selectedDb!.name} - ${validYFields[0] || "Chart"}`;
       const validAggs = yAggregations.slice(0, validYFields.length).map(a => a || "sum");
       const sp: number | "auto" = startingPoint === "auto" ? "auto" : (isFinite(Number(startingPoint)) ? Number(startingPoint) : "auto");
-      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, yAggregations: validAggs, startingPoint: sp, color, colorMode, colors: multiColors, createdAt: Date.now() };
+      // Auto-detect currency prefix from the first y-field's number/rollup format
+      let yPrefix = "";
+      if (selectedDb && validYFields[0] && token) {
+        try {
+          const fmtRes = await fetch(`/api/notion/field-format?databaseId=${selectedDb.id}&field=${encodeURIComponent(validYFields[0])}`, { headers: { "x-notion-token": token } });
+          if (fmtRes.ok) { const fj = await fmtRes.json(); yPrefix = fj.prefix || ""; }
+        } catch {}
+      }
+      const config = { name, databaseId: selectedDb!.id, databaseName: selectedDb!.name, chartType, xField, yField: validYFields[0] || "", yFields: validYFields, yAggregations: validAggs, startingPoint: sp, color, colorMode, colors: multiColors, yPrefix, createdAt: Date.now() };
       const existing: ChartConfig[] = JSON.parse(localStorage.getItem("notion_charts") || "[]");
       if (editId) {
         const updated = existing.map(c => c.id === editId ? { ...c, ...config } : c);
