@@ -8,7 +8,7 @@ export function formatDateLabel(dateStr: string): string {
   return `${months[d.getMonth()]} ${day},${String(d.getFullYear()).slice(2)}`;
 }
 
-// Catmull-Rom spline → cubic bezier SVG path
+// Catmull-Rom spline → cubic bezier SVG path (Y control points clamped to prevent overshoot)
 function smoothLinePath(pts: [number, number][]): string {
   if (pts.length === 0) return "";
   if (pts.length === 1) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
@@ -23,9 +23,13 @@ function smoothLinePath(pts: [number, number][]): string {
     const p2 = pts[i + 1];
     const p3 = pts[Math.min(n - 1, i + 2)];
     const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+    let cp1y = p1[1] + (p2[1] - p0[1]) / 6;
     const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    let cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+    const lo = Math.min(p1[1], p2[1]);
+    const hi = Math.max(p1[1], p2[1]);
+    cp1y = Math.max(lo, Math.min(hi, cp1y));
+    cp2y = Math.max(lo, Math.min(hi, cp2y));
     d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
   }
   return d;
@@ -104,7 +108,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const approxIW = W - lp - rp;
   const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
   const labelSpacing = approxIW / Math.max(1, approxEffective - 1);
-  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing - 4;
+  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing * 0.65;
   // Compute safe font size for rotated labels so leftmost label doesn't clip at x=0
   const xF = rotateX ? Math.max(5, Math.min(F, Math.floor(lp * 1.414 / (maxLabelLen * 0.65 + 1)))) : F;
   const pad = { top: 14, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
@@ -126,11 +130,14 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const linePath = smoothLinePath(pts);
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
 
-  const showDots = data.length <= 200;
-  const dots = showDots
-    ? data.map((d, i) =>
-        `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`
-      ).join("")
+  const dots = data.length <= 200
+    ? data.map((d, i) => {
+        const y = Number(d.y);
+        const prev = i > 0 ? Number(data[i - 1].y) : y;
+        const next = i < data.length - 1 ? Number(data[i + 1].y) : y;
+        if (i !== 0 && i !== data.length - 1 && !((y > prev && y > next) || (y < prev && y < next))) return "";
+        return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(y).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`;
+      }).join("")
     : "";
 
   const targetLabels = Math.max(6, Math.round(iW / 38));
@@ -365,7 +372,7 @@ function renderMultiSeriesLineChart(
   const approxIW = W - lp - rp;
   const approxEffective = Math.min(Math.max(6, Math.round(approxIW / 38)), data.length);
   const labelSpacing = approxIW / Math.max(1, approxEffective - 1);
-  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing - 4;
+  const rotateX = maxLabelLen * (F * 0.6) > labelSpacing * 0.65;
   const xF = rotateX ? Math.max(5, Math.min(F, Math.floor(lp * 1.414 / (maxLabelLen * 0.65 + 1)))) : F;
   const pad = { top: 22, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
   const iW = W - pad.left - pad.right;
@@ -415,7 +422,13 @@ function renderMultiSeriesLineChart(
     const linePath = smoothLinePath(pts);
     const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
     const dots = data.length <= 200
-      ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d[yf]) || 0).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`).join("")
+      ? data.map((d, i) => {
+          const y = Number(d[yf]) || 0;
+          const prev = i > 0 ? (Number(data[i - 1][yf]) || 0) : y;
+          const next = i < data.length - 1 ? (Number(data[i + 1][yf]) || 0) : y;
+          if (i !== 0 && i !== data.length - 1 && !((y > prev && y > next) || (y < prev && y < next))) return "";
+          return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(y).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`;
+        }).join("")
       : "";
     return `<path d="${areaPath}" fill="${c}" fill-opacity="${yFields.length > 1 ? 0.08 : 0.18}"/>
 <path d="${linePath}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>${dots}`;
