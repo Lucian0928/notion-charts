@@ -5,7 +5,7 @@ export function formatDateLabel(dateStr: string): string {
   if (isNaN(d.getTime())) return String(dateStr);
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const day = String(d.getDate()).padStart(2, "0");
-  return `${months[d.getMonth()]} ${day}, ${String(d.getFullYear()).slice(2)}`;
+  return `${months[d.getMonth()]} ${day},${String(d.getFullYear()).slice(2)}`;
 }
 
 // Catmull-Rom spline → cubic bezier SVG path
@@ -46,19 +46,22 @@ function smartTicks(maxY: number): number[] {
 }
 
 function resolveMinY(ys: number[], sp?: number | "auto"): number {
-  if (sp === "auto") {
-    const minVal = Math.min(...ys.filter(v => !isNaN(v)));
-    if (minVal <= 0) return 0;
-    const rough = minVal * 0.9;
-    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1e-10))));
+  if (typeof sp === "number") return sp;
+  const validYs = ys.filter(v => !isNaN(v));
+  const minVal = validYs.length ? Math.min(...validYs) : 0;
+  if (minVal < 0) {
+    const rough = minVal * 1.1;
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.max(Math.abs(rough), 1e-10))));
     return Math.floor(rough / mag) * mag;
   }
-  if (typeof sp === "number") return sp;
-  return 0;
+  if (sp !== "auto") return 0;
+  if (minVal === 0) return 0;
+  const rough = minVal * 0.9;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1e-10))));
+  return Math.floor(rough / mag) * mag;
 }
 
 function smartTicksFrom(minY: number, maxY: number): number[] {
-  if (minY <= 0) return smartTicks(maxY);
   if (maxY <= minY) return [minY];
   const range = maxY - minY;
   const rough = range / 5;
@@ -75,11 +78,12 @@ function smartTicksFrom(minY: number, maxY: number): number[] {
 }
 
 function fmtTick(v: number): string {
-  if (v >= 1000000) return (v / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  const abs = Math.abs(v), sign = v < 0 ? "-" : "";
+  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(1).replace(/\.0$/, "") + "k";
   if (Number.isInteger(v)) return String(v);
   const r = Math.round(v * 1000) / 1000;
-  return r % 1 === 0 ? String(r) : r.toFixed(r < 0.1 ? 3 : r < 1 ? 2 : 1);
+  return r % 1 === 0 ? String(r) : r.toFixed(Math.abs(r) < 0.1 ? 3 : Math.abs(r) < 1 ? 2 : 1);
 }
 
 function renderLineChart(rawData: { x: any; y: any }[], color: string, startingPoint?: number | "auto"): string {
@@ -117,9 +121,10 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
+  const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
   const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d.y))]);
   const linePath = smoothLinePath(pts);
-  const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
+  const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
 
   const showDots = data.length <= 200;
   const dots = showDots
@@ -212,11 +217,13 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
 
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
+  const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const bx = i * slotW + barPad;
-    const bh = Math.max(1, ((Number(d.y) - yFloor) / ySpan) * iH);
-    const by = iH - bh;
+    const valY = iH - ((Number(d.y) - yFloor) / ySpan) * iH;
+    const by = Math.min(valY, zeroY);
+    const bh = Math.max(1, Math.abs(zeroY - valY));
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
   }).join("");
 
@@ -400,11 +407,12 @@ function renderMultiSeriesLineChart(
     return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
 
+  const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
   const seriesSvg = yFields.map((yf, si) => {
     const c = colors[si % colors.length];
     const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d[yf]) || 0)]);
     const linePath = smoothLinePath(pts);
-    const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${iH} L${sx(0).toFixed(1)},${iH} Z`;
+    const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
     const dots = data.length <= 200
       ? data.map((d, i) => `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d[yf]) || 0).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`).join("")
       : "";
@@ -463,14 +471,17 @@ function renderMultiSeriesBarChart(
   const rx = Math.min(3, barW * 0.25);
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
+  const zeroYM = iH - ((0 - yFloor) / ySpan) * iH;
   const bars = data.map((d, i) => {
     const gx = i * slotW + groupPad;
     return yFields.map((yf, si) => {
       const c = colors[si % colors.length];
       const bx = gx + si * (barW + barGap);
       const val = Number(d[yf]) || 0;
-      const bh = Math.max(1, ((val - yFloor) / ySpan) * iH);
-      return `<rect x="${bx.toFixed(1)}" y="${(iH - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+      const valY = iH - ((val - yFloor) / ySpan) * iH;
+      const by = Math.min(valY, zeroYM);
+      const bh = Math.max(1, Math.abs(zeroYM - valY));
+      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
     }).join("");
   }).join("");
 
@@ -535,11 +546,14 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
   const barH = Math.max(1, slotH - barPad * 2);
   const rx = Math.min(3, barH * 0.25);
 
+  const zeroX = ((0 - xFloor) / xSpan) * iW;
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const by = i * slotH + barPad;
-    const bw = Math.max(1, ((Number(d.y) - xFloor) / xSpan) * iW);
-    return `<rect x="0" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+    const valX = ((Number(d.y) - xFloor) / xSpan) * iW;
+    const bx = Math.min(valX, zeroX);
+    const bw = Math.max(1, Math.abs(valX - zeroX));
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
   }).join("");
 
   const maxLabels = Math.max(2, Math.floor(iH / 20));
