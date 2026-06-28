@@ -79,11 +79,11 @@ function smartTicksFrom(minY: number, maxY: number): number[] {
 
 function fmtTick(v: number): string {
   const abs = Math.abs(v), sign = v < 0 ? "-" : "";
-  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (abs >= 1000) return sign + (abs / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(2).replace(/\.?0+$/, "") + "k";
   if (Number.isInteger(v)) return String(v);
-  const r = Math.round(v * 1000) / 1000;
-  return r % 1 === 0 ? String(r) : r.toFixed(Math.abs(r) < 0.1 ? 3 : Math.abs(r) < 1 ? 2 : 1);
+  const r = Math.round(v * 100) / 100;
+  return r % 1 === 0 ? String(r) : r.toFixed(Math.abs(r) < 0.01 ? 3 : 2).replace(/\.?0+$/, "");
 }
 
 function renderLineChart(rawData: { x: any; y: any }[], color: string, startingPoint?: number | "auto"): string {
@@ -332,14 +332,14 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
     const sx = LW - swW;
     const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
     labels += `<rect x="${sx}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
-    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
   rightItems.forEach(({ s, y: ly }) => {
     const col = W - LW;
     const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
     labels += `<rect x="${col}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
-    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
   return `<g>${slices}${labels}</g>`;
@@ -581,8 +581,7 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
 }
 
 function fmtCurrency(v: number, prefix: string): string {
-  const n = Math.round(Math.abs(v));
-  const s = n.toLocaleString("en-US");
+  const s = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   return (v < 0 ? "-" : "") + prefix + s;
 }
 
@@ -656,14 +655,14 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
     const sx = LW - swW;
     const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
     labels += `<rect x="${sx}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
-    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
   rightItems.forEach(({ s, y: ly }) => {
     const col = W - LW;
     const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
     labels += `<rect x="${col}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
-    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
   return `<g>${slices}${labels}</g>`;
