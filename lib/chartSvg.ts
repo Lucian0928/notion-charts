@@ -183,7 +183,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
     </g>`;
 }
 
-function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
+function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto", prefix = ""): string {
   const data = [...rawData].sort((a, b) =>
     String(a.x) < String(b.x) ? -1 : String(a.x) > String(b.x) ? 1 : 0
   );
@@ -214,9 +214,9 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const ySpan = yCeil - yFloor || 1;
 
   const slotW = iW / n;
-  const barPad = Math.min(slotW * 0.2, 10);
+  const barPad = Math.min(slotW * 0.1, 6);
   const barW = Math.max(1, slotW - barPad * 2);
-  const rx = Math.min(3, barW * 0.25);
+  const rx = Math.min(8, barW * 0.15);
 
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
@@ -224,10 +224,22 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const bx = i * slotW + barPad;
-    const valY = iH - ((Number(d.y) - yFloor) / ySpan) * iH;
+    const v = Number(d.y);
+    const valY = iH - ((v - yFloor) / ySpan) * iH;
     const by = Math.min(valY, zeroY);
     const bh = Math.max(1, Math.abs(zeroY - valY));
-    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+
+    const fmtStr = fmtCurrency(v, prefix);
+    const maxByWidth = Math.floor(barW * 0.88 / (fmtStr.length * 0.56));
+    const valF = Math.max(7, Math.min(14, Math.floor(barW * 0.22), maxByWidth));
+    const lx = (bx + barW / 2).toFixed(1);
+    let label = "";
+    if (bh >= valF * 1.5) {
+      label = `<text x="${lx}" y="${(by + bh / 2 + valF * 0.35).toFixed(1)}" text-anchor="middle" fill="white" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">${fmtStr}</text>`;
+    } else if (bh > 4) {
+      label = `<text x="${lx}" y="${(by - 4).toFixed(1)}" text-anchor="middle" style="fill:var(--label);pointer-events:none" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtStr}</text>`;
+    }
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>${label}`;
   }).join("");
 
   const yGridLines = yTicks.map((v) => {
@@ -778,7 +790,7 @@ export function renderSvgChart(
   const single: { x: any; y: any }[] = (yFields && yFields.length === 1)
     ? rawData.map(d => ({ x: d.x, y: d[yFields[0]] }))
     : rawData as { x: any; y: any }[];
-  if (chartType === "bar") return renderBarChart(single, resolvedColors, startingPoint);
+  if (chartType === "bar") return renderBarChart(single, resolvedColors, startingPoint, prefix);
   if (chartType === "hbar") return renderHBarChart(single, resolvedColors, startingPoint);
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
   if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors, prefix);

@@ -235,14 +235,20 @@ const CHART_SCRIPT = `
     if(iW<20||iH<20) return '';
     var ys=s.map(function(d){return+d.y;}), maxY=Math.max.apply(null,ys)||1;
     var yFloor=resolveMin(ys),ticks=smartTicksFrom(yFloor,maxY),yR=ticks[ticks.length-1]||1,ySpan=yR-yFloor||1;
-    var slW=iW/n, bPad=Math.min(slW*0.2,10), bW=Math.max(1,slW-bPad*2), rx=Math.min(3,bW*0.25);
+    var slW=iW/n, bPad=Math.min(slW*0.1,6), bW=Math.max(1,slW-bPad*2), rx=Math.min(8,bW*0.15);
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     var zeroY=iH-((0-yFloor)/ySpan)*iH;
     var bars='';
     s.forEach(function(d,i){
       var c=colors[i%colors.length],bx=i*slW+bPad;
       var valY=iH-((+d.y-yFloor)/ySpan)*iH,by=Math.min(valY,zeroY),bh=Math.max(1,Math.abs(zeroY-valY));
-      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'"/>';
+      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'"/>';
+      var fmtStr=fmtFull(+d.y,C.yPrefix||'');
+      var maxByW=Math.floor(bW*0.88/(fmtStr.length*0.56));
+      var valF=Math.max(7,Math.min(14,Math.floor(bW*0.22),maxByW));
+      var lx=(bx+bW/2).toFixed(1);
+      if(bh>=valF*1.5){ bars+='<text x="'+lx+'" y="'+(by+bh/2+valF*0.35).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">'+fmtStr+'</text>'; }
+      else if(bh>4){ bars+='<text x="'+lx+'" y="'+(by-4).toFixed(1)+'" text-anchor="middle" style="fill:var(--label);pointer-events:none" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+fmtStr+'</text>'; }
     });
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
