@@ -274,40 +274,68 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const W = 620, H = 500;
-  const cx = W / 2;
-  const cy = H / 2;
-  const R = Math.min(cx, cy) - 75;
+  const LW = 130, vp = 25;
+  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2); // 150
+  const cx = W / 2, cy = H / 2; // 310, 250
 
-  let slices = "";
-  let labels = "";
+  // Build slices
+  interface Slice { name: string; value: number; sweep: number; start: number; end: number; mid: number; color: string; pct: number }
+  const sliceData: Slice[] = [];
   let angle = -Math.PI / 2;
-
   for (let i = 0; i < entries.length; i++) {
     const [name, value] = entries[i];
     const sweep = (value / total) * 2 * Math.PI;
-    const endAngle = angle + sweep;
-    const c = colors[i % colors.length];
-
-    const x1 = cx + R * Math.cos(angle);
-    const y1 = cy + R * Math.sin(angle);
-    const x2 = cx + R * Math.cos(endAngle);
-    const y2 = cy + R * Math.sin(endAngle);
-    const large = sweep > Math.PI ? 1 : 0;
-
-    slices += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${c}" style="stroke:var(--bg);stroke-width:2;"/>`;
-
-    if (sweep > 0.1) {
-      const mid = angle + sweep / 2;
-      const lx = cx + (R + 26) * Math.cos(mid);
-      const ly = cy + (R + 26) * Math.sin(mid);
-      const pct = ((value / total) * 100).toFixed(0) + "%";
-      const anchor = lx > cx + 8 ? "start" : lx < cx - 8 ? "end" : "middle";
-      const label = name.length > 16 ? name.slice(0, 15) + "…" : name;
-      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
-    }
-
-    angle = endAngle;
+    sliceData.push({ name, value, sweep, start: angle, end: angle + sweep, mid: angle + sweep / 2, color: colors[i % colors.length], pct: (value / total) * 100 });
+    angle += sweep;
   }
+
+  // Draw slices
+  let slices = sliceData.map(sd => {
+    const x1 = cx + R * Math.cos(sd.start), y1 = cy + R * Math.sin(sd.start);
+    const x2 = cx + R * Math.cos(sd.end), y2 = cy + R * Math.sin(sd.end);
+    const large = sd.sweep > Math.PI ? 1 : 0;
+    return `<path d="M${cx.toFixed(1)},${cy.toFixed(1)} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${sd.color}" style="stroke:var(--bg);stroke-width:1.5;"/>`;
+  }).join("");
+
+  // Cover junction artifacts at center
+  slices += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2" fill="var(--bg)"/>`;
+
+  // Side labels: left = cos(mid)<0, right = cos(mid)>=0
+  const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  const rightG = sliceData.filter(s => Math.cos(s.mid) >= 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  const fSz = 11, rowH = fSz + 8;
+
+  function placeY(grp: Slice[]): { s: Slice; y: number }[] {
+    const items = grp.map(s => ({ s, y: cy + (R + 18) * Math.sin(s.mid) }));
+    items.sort((a, b) => a.y - b.y);
+    for (let it = 0; it < 30; it++) {
+      for (let j = 0; j < items.length - 1; j++) {
+        const g = items[j + 1].y - items[j].y;
+        if (g < rowH) { const p = (rowH - g) / 2; items[j].y -= p; items[j + 1].y += p; }
+      }
+    }
+    items.forEach(item => { item.y = Math.max(vp + fSz, Math.min(H - vp - fSz, item.y)); });
+    return items;
+  }
+
+  const leftItems = placeY(leftG), rightItems = placeY(rightG);
+  let labels = "";
+
+  leftItems.forEach(({ s, y: ly }) => {
+    const ax = cx + R * Math.cos(s.mid), ay = cy + R * Math.sin(s.mid);
+    const col = LW;
+    labels += `<polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${(col + 14).toFixed(1)},${ly.toFixed(1)} ${col.toFixed(1)},${ly.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="1.2" opacity="0.75"/>`;
+    const nm = s.name.length > 20 ? s.name.slice(0, 19) + "…" : s.name;
+    labels += `<text x="${col - 5}" y="${(ly + fSz * 0.38).toFixed(1)}" style="fill:${s.color}" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm} ${s.pct.toFixed(0)}%</text>`;
+  });
+
+  rightItems.forEach(({ s, y: ly }) => {
+    const ax = cx + R * Math.cos(s.mid), ay = cy + R * Math.sin(s.mid);
+    const col = W - LW;
+    labels += `<polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${(col - 14).toFixed(1)},${ly.toFixed(1)} ${col.toFixed(1)},${ly.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="1.2" opacity="0.75"/>`;
+    const nm = s.name.length > 20 ? s.name.slice(0, 19) + "…" : s.name;
+    labels += `<text x="${col + 5}" y="${(ly + fSz * 0.38).toFixed(1)}" style="fill:${s.color}" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm} ${s.pct.toFixed(0)}%</text>`;
+  });
 
   return `<g>${slices}${labels}</g>`;
 }
