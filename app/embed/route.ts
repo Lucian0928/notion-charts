@@ -251,7 +251,7 @@ const CHART_SCRIPT = `
       slices.push({idx:i,name:nm,value:v,sweep:sw,start:a,end:a+sw,mid:a+sw/2,color:colors[i%colors.length],pct:(v/total)*100});
       a+=sw;
     });
-    state={type:'pie',cx:cx,cy:cy,R:R,slices:slices,total:total};
+    state={type:'pie',cx:cx,cy:cy,R:R,innerR:0,slices:slices,total:total};
     // slices with id for DOM lookup (explode) and CSS transition
     var slPaths=slices.map(function(s){
       var x1=cx+R*Math.cos(s.start),y1=cy+R*Math.sin(s.start);
@@ -288,6 +288,62 @@ const CHART_SCRIPT = `
     return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+center+'</g>';
   }
 
+  function doughnut(data,colors,W,H){
+    var agg={};
+    data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
+    var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
+    if(!total) return noData(W,H);
+    var LW=Math.min(Math.floor(W*0.26),220),vp=30;
+    var R=Math.min((W-2*LW-60)/2,(H-vp*2)/2);
+    R=Math.max(R,80);
+    var innerR=Math.round(R*0.5);
+    var cx=W/2,cy=H/2;
+    var slices=[],a=-Math.PI/2;
+    entries.forEach(function(e,i){
+      var nm=e[0],v=e[1],sw=(v/total)*2*Math.PI;
+      slices.push({idx:i,name:nm,value:v,sweep:sw,start:a,end:a+sw,mid:a+sw/2,color:colors[i%colors.length],pct:(v/total)*100});
+      a+=sw;
+    });
+    state={type:'pie',cx:cx,cy:cy,R:R,innerR:innerR,slices:slices,total:total};
+    var slPaths=slices.map(function(s){
+      var x1o=cx+R*Math.cos(s.start),y1o=cy+R*Math.sin(s.start);
+      var x2o=cx+R*Math.cos(s.end),y2o=cy+R*Math.sin(s.end);
+      var x1i=cx+innerR*Math.cos(s.end),y1i=cy+innerR*Math.sin(s.end);
+      var x2i=cx+innerR*Math.cos(s.start),y2i=cy+innerR*Math.sin(s.start);
+      var lg=s.sweep>Math.PI?1:0;
+      return '<path id="ps'+s.idx+'" d="M'+x1o.toFixed(2)+','+y1o.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2o.toFixed(2)+','+y2o.toFixed(2)+' L'+x1i.toFixed(2)+','+y1i.toFixed(2)+' A'+innerR.toFixed(1)+','+innerR.toFixed(1)+' 0 '+lg+',0 '+x2i.toFixed(2)+','+y2i.toFixed(2)+' Z" fill="'+s.color+'" style="cursor:pointer;transition:transform 0.15s ease;"/>';
+    }).join('');
+    // center total
+    var bigF=Math.min(Math.round(R*0.28),32),smF=Math.max(Math.min(Math.round(R*0.12),12),9);
+    var ctr='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35).toFixed(1)+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+fmt(total)+'</text>';
+    ctr+='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35+smF+4).toFixed(1)+'" style="fill:var(--label);opacity:0.55;pointer-events:none" font-size="'+smF+'" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">Total</text>';
+    // legend swatch labels (same as pie)
+    var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
+    var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
+    var fSz=Math.min(14,Math.max(10,H/50)),rowH=fSz+11,swW=Math.round(fSz*2),swH=Math.round(fSz*0.8);
+    function placeY(grp){
+      var n=grp.length,tot=n*rowH;
+      var items=grp.map(function(s,i){return{s:s,y:cy-tot/2+(i+0.5)*rowH};});
+      for(var it=0;it<30;it++) for(var j=0;j<items.length-1;j++){var g=items[j+1].y-items[j].y;if(g<rowH){var p=(rowH-g)/2;items[j].y-=p;items[j+1].y+=p;}}
+      items.forEach(function(item){item.y=Math.max(vp+fSz,Math.min(H-vp-fSz,item.y));});
+      return items;
+    }
+    var leftItems=placeY(leftG),rightItems=placeY(rightG),lb='';
+    leftItems.forEach(function(item){
+      var s=item.s,ly=item.y,sx=LW-swW;
+      lb+='<rect x="'+sx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
+      var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
+      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
+    });
+    rightItems.forEach(function(item){
+      var s=item.s,ly=item.y,rx=W-LW;
+      lb+='<rect x="'+rx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
+      var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
+      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
+    });
+    return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+ctr+'</g>';
+  }
+
   // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
   svg.addEventListener('mousemove',function(e){
     if(!state){tip.style.opacity='0';return;}
@@ -313,8 +369,8 @@ const CHART_SCRIPT = `
       tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
-      var dx=vx-state.cx,dy=vy-state.cy;
-      if(Math.sqrt(dx*dx+dy*dy)>state.R){
+      var dx=vx-state.cx,dy=vy-state.cy,dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>state.R||(state.innerR>0&&dist<state.innerR)){
         tip.style.opacity='0';
         if(pieActive){pieActive.el.style.transform='';pieActive=null;}
         return;
@@ -347,8 +403,8 @@ const CHART_SCRIPT = `
     var t=e.touches[0],r2=svg.getBoundingClientRect();
     var vx2=t.clientX-r2.left,vy2=t.clientY-r2.top;
     var tx2=Math.min(t.clientX+14,window.innerWidth-220),ty2=Math.max(t.clientY-50,8);
-    var dx2=vx2-state.cx,dy2=vy2-state.cy;
-    if(Math.sqrt(dx2*dx2+dy2*dy2)>state.R){
+    var dx2=vx2-state.cx,dy2=vy2-state.cy,dist2=Math.sqrt(dx2*dx2+dy2*dy2);
+    if(dist2>state.R||(state.innerR>0&&dist2<state.innerR)){
       tip.style.opacity='0';
       if(pieActive){pieActive.el.style.transform='';pieActive=null;}
       return;
@@ -445,6 +501,7 @@ const CHART_SCRIPT = `
       ?'<text style="fill:#f87171" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">'+C.error+'</text>'
       :C.chartType==='bar'?(yFs?barMulti(D,yFs,colors,W,H):bar(D,colors,W,H))
       :C.chartType==='pie'?pie(D,colors,W,H)
+      :C.chartType==='doughnut'?doughnut(D,colors,W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     pieActive=null;
     if(!first) svg.style.animation='none';
@@ -501,7 +558,7 @@ export async function GET(req: NextRequest) {
   let yFields: string[] = [];
   let yAggregations: string[] = [];
   let color      = searchParams.get("color")      || "#6366f1";
-  let chartType: "line" | "bar" | "pie" = "line";
+  let chartType: "line" | "bar" | "pie" | "doughnut" = "line";
   let colorMode: "single" | "multi"     = "single";
   let colors: string[] = [];
   let kvStatus = "skipped";

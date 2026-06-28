@@ -581,43 +581,71 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[]): s
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const W = 620, H = 500;
+  const LW = 130, vp = 25;
+  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2); // 150
+  const innerR = Math.round(R * 0.5); // 75
   const cx = W / 2, cy = H / 2;
-  const R = Math.min(cx, cy) - 75;
-  const innerR = R * 0.5;
 
-  let slices = "", labels = "";
+  interface Slice { name: string; value: number; sweep: number; start: number; end: number; mid: number; color: string; pct: number }
+  const sliceData: Slice[] = [];
   let angle = -Math.PI / 2;
-
   for (let i = 0; i < entries.length; i++) {
     const [name, value] = entries[i];
     const sweep = (value / total) * 2 * Math.PI;
-    const endAngle = angle + sweep;
-    const c = colors[i % colors.length];
-    const large = sweep > Math.PI ? 1 : 0;
-
-    const x1o = cx + R * Math.cos(angle), y1o = cy + R * Math.sin(angle);
-    const x2o = cx + R * Math.cos(endAngle), y2o = cy + R * Math.sin(endAngle);
-    const x1i = cx + innerR * Math.cos(endAngle), y1i = cy + innerR * Math.sin(endAngle);
-    const x2i = cx + innerR * Math.cos(angle), y2i = cy + innerR * Math.sin(angle);
-
-    slices += `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${c}" style="stroke:var(--bg);stroke-width:2;"/>`;
-
-    if (sweep > 0.1) {
-      const mid = angle + sweep / 2;
-      const lx = cx + (R + 26) * Math.cos(mid);
-      const ly = cy + (R + 26) * Math.sin(mid);
-      const pct = ((value / total) * 100).toFixed(0) + "%";
-      const anchor = lx > cx + 8 ? "start" : lx < cx - 8 ? "end" : "middle";
-      const label = name.length > 16 ? name.slice(0, 15) + "…" : name;
-      labels += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label} ${pct}</text>`;
-    }
-    angle = endAngle;
+    sliceData.push({ name, value, sweep, start: angle, end: angle + sweep, mid: angle + sweep / 2, color: colors[i % colors.length], pct: (value / total) * 100 });
+    angle += sweep;
   }
 
-  const fmtTotal = fmtTick(total);
-  const center = `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="22" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
+  // Draw slices (no stroke)
+  let slices = sliceData.map(sd => {
+    const x1o = cx + R * Math.cos(sd.start), y1o = cy + R * Math.sin(sd.start);
+    const x2o = cx + R * Math.cos(sd.end), y2o = cy + R * Math.sin(sd.end);
+    const x1i = cx + innerR * Math.cos(sd.end), y1i = cy + innerR * Math.sin(sd.end);
+    const x2i = cx + innerR * Math.cos(sd.start), y2i = cy + innerR * Math.sin(sd.start);
+    const large = sd.sweep > Math.PI ? 1 : 0;
+    return `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${sd.color}"/>`;
+  }).join("");
 
-  return `<g>${slices}${labels}${center}</g>`;
+  // Center total text
+  const fmtTotal = fmtTick(total);
+  slices += `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="22" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
+
+  // Legend-swatch labels in left/right columns (same as pie)
+  const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  const rightG = sliceData.filter(s => Math.cos(s.mid) >= 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  const fSz = 11, rowH = fSz + 9, swW = 22, swH = 9;
+
+  function placeY(grp: Slice[]): { s: Slice; y: number }[] {
+    const n = grp.length, tot = n * rowH;
+    const items = grp.map((s, i) => ({ s, y: cy - tot / 2 + (i + 0.5) * rowH }));
+    for (let it = 0; it < 30; it++) {
+      for (let j = 0; j < items.length - 1; j++) {
+        const g = items[j + 1].y - items[j].y;
+        if (g < rowH) { const p = (rowH - g) / 2; items[j].y -= p; items[j + 1].y += p; }
+      }
+    }
+    items.forEach(item => { item.y = Math.max(vp + fSz, Math.min(H - vp - fSz, item.y)); });
+    return items;
+  }
+
+  const leftItems = placeY(leftG), rightItems = placeY(rightG);
+  let labels = "";
+
+  leftItems.forEach(({ s, y: ly }) => {
+    const sx = LW - swW;
+    const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
+    labels += `<rect x="${sx}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
+    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+  });
+
+  rightItems.forEach(({ s, y: ly }) => {
+    const col = W - LW;
+    const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
+    labels += `<rect x="${col}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
+    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+  });
+
+  return `<g>${slices}${labels}</g>`;
 }
 
 function renderRadarChart(rawData: { x: any; y: any }[], color: string): string {
