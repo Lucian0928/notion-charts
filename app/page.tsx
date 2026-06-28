@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChartConfig } from "@/lib/types";
-import { renderSvgChart, getViewBox } from "@/lib/chartSvg";
+import { renderSvgChart, getViewBox, DEFAULT_MULTI_COLORS } from "@/lib/chartSvg";
 import { NewChartModal } from "@/app/components/NewChartModal";
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ const menuItemBase: React.CSSProperties = {
 export default function DashboardPage() {
   const router = useRouter();
   const [charts,    setCharts]    = useState<ChartConfig[]>([]);
-  const [chartData, setChartData] = useState<Record<string, { x: any; y: any }[]>>({});
+  const [chartData, setChartData] = useState<Record<string, any[]>>({});
   const [copied,    setCopied]    = useState<string | null>(null);
   const [menuOpen,  setMenuOpen]  = useState<string | null>(null);
   const [search,    setSearch]    = useState("");
@@ -108,10 +108,15 @@ export default function DashboardPage() {
 
   async function fetchChartData(config: ChartConfig, t: string) {
     try {
-      const res = await fetch(
-        `/api/notion/query?databaseId=${config.databaseId}&xField=${encodeURIComponent(config.xField)}&yField=${encodeURIComponent(config.yField)}`,
-        { headers: { "x-notion-token": t } }
-      );
+      const yFields = config.yFields?.length ? config.yFields : [config.yField];
+      const aggregations = config.yAggregations || yFields.map(() => "sum");
+      const params = new URLSearchParams({
+        databaseId: config.databaseId,
+        xField: config.xField,
+        yFields: yFields.join(","),
+        aggregations: aggregations.join(","),
+      });
+      const res = await fetch(`/api/notion/query?${params}`, { headers: { "x-notion-token": t } });
       const json = await res.json();
       setChartData((prev) => ({ ...prev, [config.id]: json.data || [] }));
     } catch {}
@@ -323,10 +328,10 @@ export default function DashboardPage() {
                   {/* Chart type icon */}
                   <div style={{
                     width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                    background: `${cardColor}15`,
+                    background: "rgba(0,0,0,0.06)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    <ChartTypeIcon type={config.chartType || "line"} color={cardColor} />
+                    <ChartTypeIcon type={config.chartType || "line"} color="#6b7280" />
                   </div>
 
                   {/* Title + subtitle */}
@@ -335,7 +340,7 @@ export default function DashboardPage() {
                       {config.name}
                     </p>
                     <p style={{ fontSize: 11, color: "var(--muted)", margin: "1px 0 0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {config.databaseName} · {config.xField} × {config.yField}
+                      {config.databaseName}
                     </p>
                   </div>
 
@@ -401,6 +406,7 @@ export default function DashboardPage() {
                   overflow: "hidden",
                   background: "var(--bg)",
                   border: "1px solid rgba(0,0,0,0.07)",
+                  height: 130,
                   ["--bg" as any]: "#f2f2f7",
                   ["--label" as any]: "#6b7280",
                   ["--grid" as any]: "rgba(0,0,0,0.07)",
@@ -409,22 +415,26 @@ export default function DashboardPage() {
                     <svg
                       viewBox={getViewBox(config.chartType || "line")}
                       preserveAspectRatio="xMidYMid meet"
-                      style={{ width: "100%", height: "auto", display: "block", maxHeight: 185 }}
+                      style={{ width: "100%", height: "100%", display: "block" }}
                       xmlns="http://www.w3.org/2000/svg"
                       dangerouslySetInnerHTML={{
                         __html: renderSvgChart(
                           data, cardColor,
                           config.chartType || "line",
-                          config.colorMode === "multi" && config.colors?.length ? config.colors : undefined
+                          config.yFields && config.yFields.length > 1
+                            ? (config.colors?.length ? config.colors : DEFAULT_MULTI_COLORS)
+                            : (config.colorMode === "multi" && config.colors?.length ? config.colors : undefined),
+                          config.yFields && config.yFields.length > 1 ? config.yFields : undefined,
+                          config.startingPoint,
                         )
                       }}
                     />
                   ) : (
-                    <div style={{ height: 118, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <div style={{
                         width: 18, height: 18, borderRadius: "50%",
-                        border: `2px solid ${cardColor}33`,
-                        borderTopColor: cardColor,
+                        border: "2px solid rgba(107,114,128,0.2)",
+                        borderTopColor: "#6b7280",
                         animation: "spin 0.8s linear infinite",
                       }} />
                     </div>
