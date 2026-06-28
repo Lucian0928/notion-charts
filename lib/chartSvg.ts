@@ -322,9 +322,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   let labels = "";
 
   leftItems.forEach(({ s, y: ly }) => {
+    const sx = LW - swW;
     const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
-    labels += `<rect x="8" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
-    labels += `<text x="${swW + 16}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
+    labels += `<rect x="${sx}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
+    labels += `<text x="${sx - 7}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
   });
 
   rightItems.forEach(({ s, y: ly }) => {

@@ -273,10 +273,10 @@ const CHART_SCRIPT = `
     }
     var leftItems=placeY(leftG),rightItems=placeY(rightG),lb='';
     leftItems.forEach(function(item){
-      var s=item.s,ly=item.y;
-      lb+='<rect x="8" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
+      var s=item.s,ly=item.y,sx=LW-swW;
+      lb+='<rect x="'+sx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
       var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
-      lb+='<text x="'+(swW+16)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
+      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
     });
     rightItems.forEach(function(item){
       var s=item.s,ly=item.y,rx=W-LW;
