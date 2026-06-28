@@ -400,46 +400,47 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Chart preview */}
-                <div style={{
-                  margin: "0 12px 12px",
-                  borderRadius: 10,
-                  overflow: "hidden",
-                  background: "var(--bg)",
-                  border: "1px solid rgba(0,0,0,0.07)",
-                  height: 130,
-                  ["--bg" as any]: "#f2f2f7",
-                  ["--label" as any]: "#6b7280",
-                  ["--grid" as any]: "rgba(0,0,0,0.07)",
-                }}>
-                  {data ? (
-                    <svg
-                      viewBox={getViewBox(config.chartType || "line")}
-                      preserveAspectRatio="xMidYMid meet"
-                      style={{ width: "100%", height: "100%", display: "block" }}
-                      xmlns="http://www.w3.org/2000/svg"
-                      dangerouslySetInnerHTML={{
-                        __html: renderSvgChart(
-                          data, cardColor,
-                          config.chartType || "line",
-                          config.yFields && config.yFields.length > 1
-                            ? (config.colors?.length ? config.colors : DEFAULT_MULTI_COLORS)
-                            : (config.colorMode === "multi" && config.colors?.length ? config.colors : undefined),
-                          config.yFields && config.yFields.length > 1 ? config.yFields : undefined,
-                          config.startingPoint,
-                        )
-                      }}
-                    />
-                  ) : (
-                    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{
-                        width: 18, height: 18, borderRadius: "50%",
-                        border: "2px solid rgba(107,114,128,0.2)",
-                        borderTopColor: "#6b7280",
-                        animation: "spin 0.8s linear infinite",
-                      }} />
+                {(() => {
+                  const ct = config.chartType || "line";
+                  const yFieldsForRender = config.yFields?.length ? config.yFields : [config.yField];
+                  const colorsForRender = config.yFields && config.yFields.length > 1
+                    ? (config.colors?.length ? config.colors : DEFAULT_MULTI_COLORS)
+                    : (config.colorMode === "multi" && config.colors?.length ? config.colors : undefined);
+                  return (
+                    <div style={{
+                      margin: "0 12px 12px",
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      background: "var(--bg)",
+                      border: "1px solid rgba(0,0,0,0.07)",
+                      aspectRatio: "800 / 320",
+                      ["--bg" as any]: "#f2f2f7",
+                      ["--label" as any]: "#6b7280",
+                      ["--grid" as any]: "rgba(0,0,0,0.07)",
+                    }}>
+                      {data ? (
+                        <svg
+                          viewBox={getViewBox(ct)}
+                          preserveAspectRatio="xMidYMid meet"
+                          style={{ width: "100%", height: "100%", display: "block" }}
+                          xmlns="http://www.w3.org/2000/svg"
+                          dangerouslySetInnerHTML={{
+                            __html: renderSvgChart(data, cardColor, ct, colorsForRender, yFieldsForRender, config.startingPoint)
+                          }}
+                        />
+                      ) : (
+                        <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{
+                            width: 18, height: 18, borderRadius: "50%",
+                            border: "2px solid rgba(107,114,128,0.2)",
+                            borderTopColor: "#6b7280",
+                            animation: "spin 0.8s linear infinite",
+                          }} />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
               </div>
             );
           })}

@@ -266,10 +266,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 800, H = 320;
+  const W = 620, H = 500;
   const cx = W / 2;
   const cy = H / 2;
-  const R = Math.min(cx, cy) - 45;
+  const R = Math.min(cx, cy) - 75;
 
   let slices = "";
   let labels = "";
@@ -540,9 +540,9 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[]): s
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 800, H = 320;
+  const W = 620, H = 500;
   const cx = W / 2, cy = H / 2;
-  const R = Math.min(cx, cy) - 45;
+  const R = Math.min(cx, cy) - 75;
   const innerR = R * 0.5;
 
   let slices = "", labels = "";
@@ -591,9 +591,9 @@ function renderRadarChart(rawData: { x: any; y: any }[], color: string): string 
   if (n < 3)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">Radar needs ≥ 3 categories</text>`;
 
-  const W = 800, H = 320;
+  const W = 620, H = 500;
   const cx = W / 2, cy = H / 2;
-  const R = Math.min(cx, cy) - 50;
+  const R = Math.min(cx, cy) - 80;
   const maxVal = Math.max(...entries.map(([, v]) => v), 1);
 
   const levels = 4;
@@ -647,7 +647,8 @@ function renderKPIChart(rawData: { x: any; y: any }[], color: string): string {
   return `<text x="${W / 2}" y="${H / 2 - 18}" text-anchor="middle" style="fill:${color}" font-size="80" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${H / 2 + 26}" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">${count} records</text>`;
 }
 
-export function getViewBox(_chartType: ChartType): string {
+export function getViewBox(chartType: ChartType): string {
+  if (chartType === "pie" || chartType === "doughnut" || chartType === "radar") return "0 0 620 500";
   return "0 0 800 320";
 }
 
