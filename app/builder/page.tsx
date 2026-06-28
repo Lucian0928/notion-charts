@@ -128,6 +128,7 @@ export default function BuilderPage() {
   const [hexInput,        setHexInput]        = useState(PRESETS[0]);
   const [rgb,             setRgb]             = useState<[number,number,number]>(hexToRgb(PRESETS[0]));
   const [previewData,     setPreviewData]     = useState<any[]>([]);
+  const [previewPrefix,   setPreviewPrefix]   = useState("");
   const [previewError,    setPreviewError]    = useState<string | null>(null);
   const [previewQueried,  setPreviewQueried]  = useState(false);
   const [loadingDbs,      setLoadingDbs]      = useState(false);
@@ -222,7 +223,10 @@ export default function BuilderPage() {
     try {
       const validAggs = yAggregations.slice(0, validYFields.length).map(a => a || "sum");
       const yParam = `yFields=${validYFields.map(encodeURIComponent).join(",")}&aggregations=${validAggs.join(",")}`;
-      const res  = await fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&${yParam}`, { headers: { "x-notion-token": token } });
+      const [res, fmtRes] = await Promise.all([
+        fetch(`/api/notion/query?databaseId=${selectedDb.id}&xField=${encodeURIComponent(xField)}&${yParam}`, { headers: { "x-notion-token": token } }),
+        fetch(`/api/notion/field-format?databaseId=${selectedDb.id}&field=${encodeURIComponent(validYFields[0])}`, { headers: { "x-notion-token": token } }),
+      ]);
       const json = await res.json();
       if (json.error) { setPreviewError(json.error); setPreviewData([]); }
       else {
@@ -230,6 +234,7 @@ export default function BuilderPage() {
         if (!(json.data || []).length) setPreviewError("No data — check selected fields.");
         setStep(3);
       }
+      if (fmtRes.ok) { const fj = await fmtRes.json(); setPreviewPrefix(fj.prefix || ""); }
     } catch (e: any) { setPreviewError(e.message); }
     finally { setLoadingPrev(false); }
   }
@@ -750,6 +755,7 @@ export default function BuilderPage() {
                 colorMode === "multi" ? multiColors : undefined,
                 yFields.filter(Boolean),
                 startingPoint === "auto" ? "auto" : (isFinite(Number(startingPoint)) ? Number(startingPoint) : "auto"),
+                previewPrefix,
               ) }}
             />
           ) : (
