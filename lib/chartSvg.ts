@@ -140,13 +140,14 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
     `<line x1="${sx(i).toFixed(1)}" y1="0" x2="${sx(i).toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`
   ).join("");
 
-  const xLabelTexts = sortedIndices.map((i) => {
+  const xLabelTexts = sortedIndices.map((i, pos) => {
     const x = sx(i);
     const label = xLabels[i];
     if (rotateX) {
       return `<text transform="translate(${x.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
+    const anchor = pos === 0 ? "start" : pos === sortedIndices.length - 1 ? "end" : "middle";
+    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   const yGridLines = yTicks.map((v) => {
@@ -233,14 +234,20 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
 
   const maxLabels = Math.max(2, Math.floor(iW / 55));
   const step = Math.max(1, Math.ceil(n / maxLabels));
+  const renderedBarIndices: number[] = data.reduce((acc: number[], _, i) => {
+    if (i % step === 0 || i === n - 1) acc.push(i);
+    return acc;
+  }, []);
   const xLabelTexts = data.map((d, i) => {
-    if (i % step !== 0 && i !== n - 1) return "";
+    const pos = renderedBarIndices.indexOf(i);
+    if (pos === -1) return "";
     const cx = i * slotW + slotW / 2;
     const label = xLabels[i];
     if (rotateX) {
       return `<text transform="translate(${cx.toFixed(1)},${iH + xF2}) rotate(-45)" style="fill:var(--label)" font-size="${xF2}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
+    const anchor = pos === 0 ? "start" : pos === renderedBarIndices.length - 1 ? "end" : "middle";
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `
@@ -351,11 +358,12 @@ function renderMultiSeriesLineChart(
   const xGridLines = sortedIndices.map((i) =>
     `<line x1="${sx(i).toFixed(1)}" y1="0" x2="${sx(i).toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`
   ).join("");
-  const xLabelTexts = sortedIndices.map((i) => {
+  const xLabelTexts = sortedIndices.map((i, pos) => {
     const x = sx(i);
     if (rotateX)
       return `<text transform="translate(${x.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
-    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+    const anchor = pos === 0 ? "start" : pos === sortedIndices.length - 1 ? "end" : "middle";
+    return `<text x="${x.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
   }).join("");
   const yGridLines = yTicks.map((v) => {
     const y = sy(v); if (y < -2 || y > iH + 2) return "";
@@ -450,12 +458,18 @@ function renderMultiSeriesBarChart(
   }).join("");
   const maxLabels = Math.max(2, Math.floor(iW / 55));
   const stepX = Math.max(1, Math.ceil(n / maxLabels));
+  const renderedMBarIndices: number[] = data.reduce((acc: number[], _, i) => {
+    if (i % stepX === 0 || i === n - 1) acc.push(i);
+    return acc;
+  }, []);
   const xLabelTexts = data.map((d, i) => {
-    if (i % stepX !== 0 && i !== n - 1) return "";
+    const pos = renderedMBarIndices.indexOf(i);
+    if (pos === -1) return "";
     const cx = i * slotW + slotW / 2;
     if (rotateX)
       return `<text transform="translate(${cx.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
-    return `<text x="${cx.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+    const anchor = pos === 0 ? "start" : pos === renderedMBarIndices.length - 1 ? "end" : "middle";
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
   }).join("");
 
   const legend = yFields.map((yf, si) => {

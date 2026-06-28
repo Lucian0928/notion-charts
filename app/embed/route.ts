@@ -182,11 +182,11 @@ const CHART_SCRIPT = `
     idx[s.length-1]=1;
     var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;});
     var xg='',xl='';
-    idxs.forEach(function(i){
+    idxs.forEach(function(i,pos){
       var x=sx(i).toFixed(1);
       xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
       if(rot) xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
-      else xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
+      else{ var anc=pos===0?'start':pos===idxs.length-1?'end':'middle'; xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>'; }
     });
     var pts=s.map(function(d,i){return[sx(i),sy(+d.y)];});
     var ln=smooth(pts);
@@ -225,11 +225,12 @@ const CHART_SCRIPT = `
       yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';
     });
     var maxL=Math.max(2,Math.floor(iW/55)), stp=Math.max(1,Math.ceil(n/maxL)),xl='';
+    var barLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)barLbls.push(i);});
     s.forEach(function(d,i){
-      if(i%stp!==0&&i!==n-1) return;
+      var pos=barLbls.indexOf(i); if(pos===-1) return;
       var cx=(i*slW+slW/2).toFixed(1);
       if(rot) xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
-      else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
+      else{ var anc=pos===0?'start':pos===barLbls.length-1?'end':'middle'; xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>'; }
     });
     state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
     return '<g transform="translate('+lp+','+tp+')">'+ yg+bars+xl+yl+'</g>';
@@ -327,7 +328,7 @@ const CHART_SCRIPT = `
     var tgt=Math.max(2,Math.floor(iW/(F*5))),eff=Math.min(tgt,s.length),stp=Math.max(1,Math.floor((s.length-1)/Math.max(1,eff-1))),idx={};
     for(var k=0;k<eff;k++) idx[Math.min(k*stp,s.length-1)]=1; idx[s.length-1]=1;
     var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;}),xg='',xl='';
-    idxs.forEach(function(i){var x=sx(i).toFixed(1);xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';if(rot)xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';});
+    idxs.forEach(function(i,pos){var x=sx(i).toFixed(1);xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';if(rot)xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{var anc=pos===0?'start':pos===idxs.length-1?'end':'middle';xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
     var seriesSvg=yFields.map(function(yf,si){var c=colors[si%colors.length];var pts=s.map(function(d,i){return[sx(i),sy(+d[yf]||0)];});var ln=smooth(pts);var area=ln+' L'+sx(s.length-1).toFixed(1)+','+iH+' L'+sx(0).toFixed(1)+','+iH+' Z';var dots=s.length<=40?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d[yf]||0).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+c+'" stroke-width="1.8"/>';}).join(''):'';return'<path d="'+area+'" fill="'+c+'" fill-opacity="0.08"/><path d="'+ln+'" fill="none" stroke="'+c+'" stroke-width="2.2" stroke-linejoin="round"/>'+dots;}).join('');
     var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><circle cx="6" cy="0" r="3.5" fill="'+c+'"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+seriesSvg+xl+yl+legend+'</g>';
@@ -354,7 +355,8 @@ const CHART_SCRIPT = `
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){var y=sy(v);if(y<-2||y>iH+2)return;if(Math.abs(y-lastY)<minG&&v!==ticks[0])return;lastY=y;yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
     var maxL=Math.max(2,Math.floor(iW/55)),stp=Math.max(1,Math.ceil(n/maxL)),xl='';
-    s.forEach(function(d,i){if(i%stp!==0&&i!==n-1)return;var cx=(i*slW+slW/2).toFixed(1);if(rot)xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';});
+    var mbLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)mbLbls.push(i);});
+    s.forEach(function(d,i){var pos=mbLbls.indexOf(i);if(pos===-1)return;var cx=(i*slW+slW/2).toFixed(1);if(rot)xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{var anc=pos===0?'start':pos===mbLbls.length-1?'end':'middle';xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
     var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><rect x="0" y="-5" width="9" height="9" rx="2" fill="'+c+'" fill-opacity="0.85"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
     return'<g transform="translate('+lp+','+tp+')">'+yg+bars+xl+yl+legend+'</g>';
   }
