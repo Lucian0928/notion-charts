@@ -269,7 +269,7 @@ const CHART_SCRIPT = `
     data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
     var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
     if(!total) return noData(W,H);
-    var vp=Math.round(H*0.05),R=Math.max(Math.floor((H-vp*2)/2),40),LW=Math.max(Math.floor((W-60-R*2)/2),50);
+    var vp=Math.round(H*0.05),Rh=Math.floor((H-vp*2)/2),Rw=Math.floor((W-160)/2),R=Math.max(Math.min(Rh,Rw),40),LW=Math.max(Math.floor((W-60-R*2)/2),50);
     var cx=W/2,cy=H/2;
     var slices=[],a=-Math.PI/2;
     entries.forEach(function(e,i){
@@ -319,7 +319,7 @@ const CHART_SCRIPT = `
     data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
     var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
     if(!total) return noData(W,H);
-    var vp=Math.round(H*0.05),R=Math.max(Math.floor((H-vp*2)/2),40),LW=Math.max(Math.floor((W-60-R*2)/2),50);
+    var vp=Math.round(H*0.05),Rh=Math.floor((H-vp*2)/2),Rw=Math.floor((W-160)/2),R=Math.max(Math.min(Rh,Rw),40),LW=Math.max(Math.floor((W-60-R*2)/2),50);
     var innerR=Math.round(R*0.5);
     var cx=W/2,cy=H/2;
     var slices=[],a=-Math.PI/2;
@@ -339,10 +339,10 @@ const CHART_SCRIPT = `
     }).join('');
     // center total with optional currency prefix
     var prefix=C.yPrefix||'',totalStr=fmtFull(total,prefix);
-    var bigF=Math.min(Math.round(R*0.28),32),smF=Math.max(Math.min(Math.round(R*0.12),12),9);
-    if(totalStr.length>10) bigF=Math.round(bigF*0.75); else if(totalStr.length>7) bigF=Math.round(bigF*0.87);
-    var ctr='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35).toFixed(1)+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+totalStr+'</text>';
-    ctr+='<text x="'+cx.toFixed(1)+'" y="'+(cy+bigF*0.35+smF+4).toFixed(1)+'" style="fill:var(--label);opacity:0.55;pointer-events:none" font-size="'+smF+'" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">Total</text>';
+    var bigF=Math.max(9,Math.round(innerR*1.8/Math.max(totalStr.length,4))),smF=Math.max(7,Math.round(bigF*0.55));
+    var cy1=(cy+bigF*0.35-(smF+4)/2).toFixed(1),cy2=(cy+bigF*0.35+(bigF*0.15+4+smF*0.85)-(smF+4)/2).toFixed(1);
+    var ctr='<text x="'+cx.toFixed(1)+'" y="'+cy1+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+totalStr+'</text>';
+    ctr+='<text x="'+cx.toFixed(1)+'" y="'+cy2+'" style="fill:var(--label);opacity:0.55;pointer-events:none" font-size="'+smF+'" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">Total</text>';
     // legend swatch labels (same as pie)
     var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
     var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
@@ -374,8 +374,10 @@ const CHART_SCRIPT = `
     var total=data.reduce(function(s,d){return s+(+d.y||0);},0);
     var prefix=C.yPrefix||'',valStr=fmtFull(total,prefix);
     var cnt=data.length;
-    var fs=valStr.length>14?52:valStr.length>10?64:80;
-    return '<text x="'+(W/2)+'" y="'+(H/2-18)+'" text-anchor="middle" style="fill:'+color+'" font-size="'+fs+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+valStr+'</text><text x="'+(W/2)+'" y="'+(H/2+26)+'" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">'+cnt+' records</text>';
+    var base=valStr.length>14?52:valStr.length>10?64:80;
+    var fs=Math.round(Math.min(base,W*0.18,H*0.4));
+    var recF=Math.max(10,Math.round(fs*0.2));
+    return '<text x="'+(W/2)+'" y="'+(H/2-fs*0.25).toFixed(1)+'" text-anchor="middle" style="fill:'+color+'" font-size="'+fs+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+valStr+'</text><text x="'+(W/2)+'" y="'+(H/2+fs*0.65).toFixed(1)+'" text-anchor="middle" style="fill:var(--label)" font-size="'+recF+'" font-family="ui-monospace,monospace">'+cnt+' records</text>';
   }
 
   // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector

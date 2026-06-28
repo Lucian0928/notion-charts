@@ -632,10 +632,13 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
     return `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${sd.color}"/>`;
   }).join("");
 
-  // Center total text (full number with optional currency prefix)
+  // Center total text — scales with inner circle radius
   const fmtTotal = fmtCurrency(total, prefix);
-  const centerFontSize = fmtTotal.length > 10 ? 16 : fmtTotal.length > 7 ? 19 : 22;
-  slices += `<text x="${cx}" y="${(cy - 6).toFixed(1)}" style="fill:var(--label)" font-size="${centerFontSize}" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${(cy + 14).toFixed(1)}" style="fill:var(--label)" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
+  const bigF = Math.max(9, Math.round(innerR * 1.8 / Math.max(fmtTotal.length, 4)));
+  const smF = Math.max(7, Math.round(bigF * 0.55));
+  const cy1 = cy + bigF * 0.35 - (smF + 4) / 2;
+  const cy2 = cy + bigF * 0.35 + (bigF * 0.15 + 4 + smF * 0.85) - (smF + 4) / 2;
+  slices += `<text x="${cx}" y="${cy1.toFixed(1)}" style="fill:var(--label)" font-size="${bigF}" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${cy2.toFixed(1)}" style="fill:var(--label)" font-size="${smF}" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
 
   // Legend-swatch labels in left/right columns (same as pie)
   const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
@@ -738,9 +741,11 @@ function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = "
   const fmtVal = fmtCurrency(total, prefix);
   const count = rawData.length;
   const W = 800, H = 320;
-  const fontSize = fmtVal.length > 14 ? 52 : fmtVal.length > 10 ? 64 : 80;
+  const base = fmtVal.length > 14 ? 52 : fmtVal.length > 10 ? 64 : 80;
+  const fontSize = Math.round(Math.min(base, W * 0.18, H * 0.4));
+  const recF = Math.max(10, Math.round(fontSize * 0.2));
 
-  return `<text x="${W / 2}" y="${H / 2 - 18}" text-anchor="middle" style="fill:${color}" font-size="${fontSize}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${H / 2 + 26}" text-anchor="middle" style="fill:var(--label)" font-size="13" font-family="ui-monospace,monospace">${count} records</text>`;
+  return `<text x="${W / 2}" y="${(H / 2 - fontSize * 0.25).toFixed(1)}" text-anchor="middle" style="fill:${color}" font-size="${fontSize}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${(H / 2 + fontSize * 0.65).toFixed(1)}" text-anchor="middle" style="fill:var(--label)" font-size="${recF}" font-family="ui-monospace,monospace">${count} records</text>`;
 }
 
 export function getViewBox(chartType: ChartType): string {
