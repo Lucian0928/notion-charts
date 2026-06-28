@@ -131,13 +131,9 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
 
   const dots = data.length <= 200
-    ? data.map((d, i) => {
-        const y = Number(d.y);
-        const prev = i > 0 ? Number(data[i - 1].y) : y;
-        const next = i < data.length - 1 ? Number(data[i + 1].y) : y;
-        if (i !== 0 && i !== data.length - 1 && !((y > prev && y > next) || (y < prev && y < next))) return "";
-        return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(y).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`;
-      }).join("")
+    ? data.map((d, i) =>
+        `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d.y)).toFixed(1)}" r="5" fill="var(--bg)" stroke="${color}" stroke-width="1.8"/>`
+      ).join("")
     : "";
 
   const targetLabels = Math.max(6, Math.round(iW / 38));
@@ -422,13 +418,9 @@ function renderMultiSeriesLineChart(
     const linePath = smoothLinePath(pts);
     const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
     const dots = data.length <= 200
-      ? data.map((d, i) => {
-          const y = Number(d[yf]) || 0;
-          const prev = i > 0 ? (Number(data[i - 1][yf]) || 0) : y;
-          const next = i < data.length - 1 ? (Number(data[i + 1][yf]) || 0) : y;
-          if (i !== 0 && i !== data.length - 1 && !((y > prev && y > next) || (y < prev && y < next))) return "";
-          return `<circle cx="${sx(i).toFixed(1)}" cy="${sy(y).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`;
-        }).join("")
+      ? data.map((d, i) =>
+          `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d[yf]) || 0).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`
+        ).join("")
       : "";
     return `<path d="${areaPath}" fill="${c}" fill-opacity="${yFields.length > 1 ? 0.08 : 0.18}"/>
 <path d="${linePath}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>${dots}`;
