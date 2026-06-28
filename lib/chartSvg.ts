@@ -281,8 +281,9 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const W = 800, H = 320;
-  const LW = 150, vp = 8;
-  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
+  const vp = 8;
+  const R = Math.floor((H - vp * 2) / 2);
+  const LW = Math.floor((W - 60 - R * 2) / 2);
   const cx = W / 2, cy = H / 2;
 
   // Build slices
@@ -600,8 +601,9 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
   const W = 800, H = 320;
-  const LW = 150, vp = 8;
-  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
+  const vp = 8;
+  const R = Math.floor((H - vp * 2) / 2);
+  const LW = Math.floor((W - 60 - R * 2) / 2);
   const innerR = Math.round(R * 0.5);
   const cx = W / 2, cy = H / 2;
 
