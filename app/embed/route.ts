@@ -123,7 +123,7 @@ const CHART_SCRIPT = `
   var tip=document.createElement('div');
   tip.style.cssText='position:fixed;pointer-events:none;opacity:0;transition:opacity 0.12s;z-index:9999;background:rgba(24,24,27,0.94);color:#e4e4e7;padding:5px 10px;border-radius:7px;font-size:11px;font-family:ui-monospace,monospace;white-space:nowrap;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 16px rgba(0,0,0,0.4);backdrop-filter:blur(8px);';
   document.body.appendChild(tip);
-  var state=null;
+  var state=null,pieActive=null;
 
   function smartTicks(m){
     if(!m) return [0];
@@ -241,54 +241,51 @@ const CHART_SCRIPT = `
     data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
     var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
     if(!total) return noData(W,H);
-    var LW=Math.min(Math.floor(W*0.24),200),vp=40;
+    var LW=Math.min(Math.floor(W*0.26),220),vp=30;
     var R=Math.min((W-2*LW-60)/2,(H-vp*2)/2);
     R=Math.max(R,80);
     var cx=W/2,cy=H/2;
-    // build slice objects
     var slices=[],a=-Math.PI/2;
     entries.forEach(function(e,i){
       var nm=e[0],v=e[1],sw=(v/total)*2*Math.PI;
-      slices.push({name:nm,value:v,sweep:sw,start:a,end:a+sw,mid:a+sw/2,color:colors[i%colors.length],pct:(v/total)*100});
+      slices.push({idx:i,name:nm,value:v,sweep:sw,start:a,end:a+sw,mid:a+sw/2,color:colors[i%colors.length],pct:(v/total)*100});
       a+=sw;
     });
     state={type:'pie',cx:cx,cy:cy,R:R,slices:slices,total:total};
-    // draw slices
-    var sl=slices.map(function(s){
+    // slices with id for DOM lookup (explode) and CSS transition
+    var slPaths=slices.map(function(s){
       var x1=cx+R*Math.cos(s.start),y1=cy+R*Math.sin(s.start);
       var x2=cx+R*Math.cos(s.end),y2=cy+R*Math.sin(s.end);
       var lg=s.sweep>Math.PI?1:0;
-      return '<path d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" style="stroke:var(--bg);stroke-width:1.5;"/>';
+      return '<path id="ps'+s.idx+'" d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" style="cursor:pointer;transition:transform 0.15s ease;"/>';
     }).join('');
-    // tiny center circle covers floating-point join artifacts
-    sl+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2" fill="var(--bg)"/>';
-    // side labels
+    var center='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2" fill="var(--bg)" style="pointer-events:none;"/>';
+    // legend-swatch labels in left/right columns (no connector lines)
     var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
     var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
-    var fSz=Math.min(14,Math.max(10,H/50)),rowH=fSz+10;
+    var fSz=Math.min(14,Math.max(10,H/50)),rowH=fSz+11,swW=Math.round(fSz*2),swH=Math.round(fSz*0.8);
     function placeY(grp){
-      var items=grp.map(function(s){return{s:s,y:cy+(R+20)*Math.sin(s.mid)};});
-      items.sort(function(a,b){return a.y-b.y;});
+      var n=grp.length,tot=n*rowH;
+      var items=grp.map(function(s,i){return{s:s,y:cy-tot/2+(i+0.5)*rowH};});
       for(var it=0;it<30;it++) for(var j=0;j<items.length-1;j++){var g=items[j+1].y-items[j].y;if(g<rowH){var p=(rowH-g)/2;items[j].y-=p;items[j+1].y+=p;}}
       items.forEach(function(item){item.y=Math.max(vp+fSz,Math.min(H-vp-fSz,item.y));});
       return items;
     }
     var leftItems=placeY(leftG),rightItems=placeY(rightG),lb='';
     leftItems.forEach(function(item){
-      var s=item.s,ly=item.y,col=LW;
-      var ax=cx+R*Math.cos(s.mid),ay=cy+R*Math.sin(s.mid);
-      lb+='<polyline points="'+ax.toFixed(1)+','+ay.toFixed(1)+' '+(col+16).toFixed(1)+','+ly.toFixed(1)+' '+col.toFixed(1)+','+ly.toFixed(1)+'" fill="none" stroke="'+s.color+'" stroke-width="1.3" opacity="0.75"/>';
-      var nm=s.name.length>26?s.name.slice(0,25)+'…':s.name;
-      lb+='<text x="'+(col-5)+'" y="'+(ly+fSz*0.4).toFixed(1)+'" style="fill:'+s.color+'" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'</text>';
+      var s=item.s,ly=item.y;
+      lb+='<rect x="8" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
+      var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
+      lb+='<text x="'+(swW+16)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
     });
     rightItems.forEach(function(item){
-      var s=item.s,ly=item.y,col=W-LW;
-      var ax=cx+R*Math.cos(s.mid),ay=cy+R*Math.sin(s.mid);
-      lb+='<polyline points="'+ax.toFixed(1)+','+ay.toFixed(1)+' '+(col-16).toFixed(1)+','+ly.toFixed(1)+' '+col.toFixed(1)+','+ly.toFixed(1)+'" fill="none" stroke="'+s.color+'" stroke-width="1.3" opacity="0.75"/>';
-      var nm=s.name.length>26?s.name.slice(0,25)+'…':s.name;
-      lb+='<text x="'+(col+5)+'" y="'+(ly+fSz*0.4).toFixed(1)+'" style="fill:'+s.color+'" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'</text>';
+      var s=item.s,ly=item.y,rx=W-LW;
+      lb+='<rect x="'+rx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
+      var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
+      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(0)+'%</text>';
     });
-    return '<g>'+sl+lb+'</g>';
+    // labels rendered first (below), slices on top to receive pointer events
+    return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+center+'</g>';
   }
 
   // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
@@ -317,18 +314,33 @@ const CHART_SCRIPT = `
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.cx,dy=vy-state.cy;
-      if(Math.sqrt(dx*dx+dy*dy)>state.R){tip.style.opacity='0';return;}
+      if(Math.sqrt(dx*dx+dy*dy)>state.R){
+        tip.style.opacity='0';
+        if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+        return;
+      }
       var angle=Math.atan2(dy,dx);
       if(angle<-Math.PI/2) angle+=2*Math.PI;
       var a=-Math.PI/2,found=null;
       state.slices.forEach(function(s){if(!found&&angle>=a&&angle<a+s.sweep)found=s;a+=s.sweep;});
       if(found){
+        if(!pieActive||pieActive.idx!==found.idx){
+          if(pieActive) pieActive.el.style.transform='';
+          var el=svg.querySelector('#ps'+found.idx);
+          if(el){el.style.transform='translate('+(16*Math.cos(found.mid)).toFixed(1)+'px,'+(16*Math.sin(found.mid)).toFixed(1)+'px)';pieActive={idx:found.idx,el:el};}
+        }
         tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+found.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+found.name+'</b><span style="color:#9ca3af;margin-left:10px">'+found.pct.toFixed(1)+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(found.value)+'</span>';
         tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
-      } else { tip.style.opacity='0'; }
+      } else {
+        tip.style.opacity='0';
+        if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+      }
     }
   });
-  svg.addEventListener('mouseleave',function(){tip.style.opacity='0';});
+  svg.addEventListener('mouseleave',function(){
+    tip.style.opacity='0';
+    if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+  });
   svg.addEventListener('touchmove',function(e){
     if(!state||state.type!=='pie'||!e.touches.length) return;
     e.preventDefault();
@@ -336,17 +348,32 @@ const CHART_SCRIPT = `
     var vx2=t.clientX-r2.left,vy2=t.clientY-r2.top;
     var tx2=Math.min(t.clientX+14,window.innerWidth-220),ty2=Math.max(t.clientY-50,8);
     var dx2=vx2-state.cx,dy2=vy2-state.cy;
-    if(Math.sqrt(dx2*dx2+dy2*dy2)>state.R){tip.style.opacity='0';return;}
+    if(Math.sqrt(dx2*dx2+dy2*dy2)>state.R){
+      tip.style.opacity='0';
+      if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+      return;
+    }
     var ang2=Math.atan2(dy2,dx2);
     if(ang2<-Math.PI/2) ang2+=2*Math.PI;
     var a2=-Math.PI/2,f2=null;
     state.slices.forEach(function(s){if(!f2&&ang2>=a2&&ang2<a2+s.sweep)f2=s;a2+=s.sweep;});
     if(f2){
+      if(!pieActive||pieActive.idx!==f2.idx){
+        if(pieActive) pieActive.el.style.transform='';
+        var el2=svg.querySelector('#ps'+f2.idx);
+        if(el2){el2.style.transform='translate('+(16*Math.cos(f2.mid)).toFixed(1)+'px,'+(16*Math.sin(f2.mid)).toFixed(1)+'px)';pieActive={idx:f2.idx,el:el2};}
+      }
       tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+f2.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+f2.name+'</b><span style="color:#9ca3af;margin-left:10px">'+f2.pct.toFixed(1)+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(f2.value)+'</span>';
       tip.style.left=tx2+'px';tip.style.top=ty2+'px';tip.style.opacity='1';
-    } else {tip.style.opacity='0';}
+    } else {
+      tip.style.opacity='0';
+      if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+    }
   },{passive:false});
-  svg.addEventListener('touchend',function(){tip.style.opacity='0';});
+  svg.addEventListener('touchend',function(){
+    tip.style.opacity='0';
+    if(pieActive){pieActive.el.style.transform='';pieActive=null;}
+  });
 
   function dims(){
     var r=wrap.getBoundingClientRect();
@@ -419,6 +446,7 @@ const CHART_SCRIPT = `
       :C.chartType==='bar'?(yFs?barMulti(D,yFs,colors,W,H):bar(D,colors,W,H))
       :C.chartType==='pie'?pie(D,colors,W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
+    pieActive=null;
     if(!first) svg.style.animation='none';
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
     svg.innerHTML=html;

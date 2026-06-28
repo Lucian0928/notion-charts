@@ -300,14 +300,14 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   // Cover junction artifacts at center
   slices += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="2" fill="var(--bg)"/>`;
 
-  // Side labels: left = cos(mid)<0, right = cos(mid)>=0
+  // Legend-swatch labels in left/right columns (no connector lines)
   const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
   const rightG = sliceData.filter(s => Math.cos(s.mid) >= 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
-  const fSz = 11, rowH = fSz + 8;
+  const fSz = 11, rowH = fSz + 9, swW = 22, swH = 9;
 
   function placeY(grp: Slice[]): { s: Slice; y: number }[] {
-    const items = grp.map(s => ({ s, y: cy + (R + 18) * Math.sin(s.mid) }));
-    items.sort((a, b) => a.y - b.y);
+    const n = grp.length, tot = n * rowH;
+    const items = grp.map((s, i) => ({ s, y: cy - tot / 2 + (i + 0.5) * rowH }));
     for (let it = 0; it < 30; it++) {
       for (let j = 0; j < items.length - 1; j++) {
         const g = items[j + 1].y - items[j].y;
@@ -322,19 +322,16 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   let labels = "";
 
   leftItems.forEach(({ s, y: ly }) => {
-    const ax = cx + R * Math.cos(s.mid), ay = cy + R * Math.sin(s.mid);
-    const col = LW;
-    labels += `<polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${(col + 14).toFixed(1)},${ly.toFixed(1)} ${col.toFixed(1)},${ly.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="1.2" opacity="0.75"/>`;
-    const nm = s.name.length > 20 ? s.name.slice(0, 19) + "…" : s.name;
-    labels += `<text x="${col - 5}" y="${(ly + fSz * 0.38).toFixed(1)}" style="fill:${s.color}" font-size="${fSz}" text-anchor="end" font-family="ui-monospace,monospace">${nm} ${s.pct.toFixed(0)}%</text>`;
+    const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
+    labels += `<rect x="8" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
+    labels += `<text x="${swW + 16}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
   });
 
   rightItems.forEach(({ s, y: ly }) => {
-    const ax = cx + R * Math.cos(s.mid), ay = cy + R * Math.sin(s.mid);
     const col = W - LW;
-    labels += `<polyline points="${ax.toFixed(1)},${ay.toFixed(1)} ${(col - 14).toFixed(1)},${ly.toFixed(1)} ${col.toFixed(1)},${ly.toFixed(1)}" fill="none" stroke="${s.color}" stroke-width="1.2" opacity="0.75"/>`;
-    const nm = s.name.length > 20 ? s.name.slice(0, 19) + "…" : s.name;
-    labels += `<text x="${col + 5}" y="${(ly + fSz * 0.38).toFixed(1)}" style="fill:${s.color}" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm} ${s.pct.toFixed(0)}%</text>`;
+    const nm = s.name.length > 22 ? s.name.slice(0, 21) + "…" : s.name;
+    labels += `<rect x="${col}" y="${(ly - swH / 2).toFixed(1)}" width="${swW}" height="${swH}" rx="2" fill="${s.color}"/>`;
+    labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(0)}%</text>`;
   });
 
   return `<g>${slices}${labels}</g>`;
