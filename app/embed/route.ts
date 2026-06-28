@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
-import { fetchChartData, fetchChartDataMulti, applyAggregation } from "@/lib/notionData";
+import { fetchChartData, fetchChartDataMulti, applyAggregation, fetchFieldFormat } from "@/lib/notionData";
 
 const CSS = `
   :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
@@ -615,6 +615,17 @@ export async function GET(req: NextRequest) {
     }
   } catch (e: any) {
     errorMsg = e.message;
+  }
+
+  // Auto-detect currency prefix if not already stored in chart config
+  if (!yPrefix && resolvedYFields.length > 0 && databaseId) {
+    try {
+      const fmtToken = process.env.NOTION_CHARTS_TOKEN;
+      if (fmtToken) {
+        const fmt = await fetchFieldFormat(fmtToken, databaseId, resolvedYFields[0]);
+        yPrefix = fmt.prefix;
+      }
+    } catch {}
   }
 
   const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, "<\\/");
