@@ -280,8 +280,8 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 620, H = 400;
-  const LW = 110, vp = 15;
+  const W = 800, H = 320;
+  const LW = 150, vp = 8;
   const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
   const cx = W / 2, cy = H / 2;
 
@@ -599,8 +599,8 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 620, H = 400;
-  const LW = 110, vp = 15;
+  const W = 800, H = 320;
+  const LW = 150, vp = 8;
   const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
   const innerR = Math.round(R * 0.5);
   const cx = W / 2, cy = H / 2;
@@ -737,7 +737,6 @@ function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = "
 }
 
 export function getViewBox(chartType: ChartType): string {
-  if (chartType === "pie" || chartType === "doughnut") return "0 0 620 400";
   if (chartType === "radar") return "0 0 620 500";
   return "0 0 800 320";
 }
