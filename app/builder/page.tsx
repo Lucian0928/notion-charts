@@ -288,8 +288,8 @@ export default function BuilderPage() {
   const isDark         = bgMode === "dark";
   const previewBg      = isDark ? "#1c1c1e" : "#ffffff";
   const previewCssVars = isDark
-    ? { "--bg": "#1c1c1e", "--label": "#6b7280", "--grid": "rgba(255,255,255,0.07)" }
-    : { "--bg": "#ffffff",  "--label": "#6b7280", "--grid": "rgba(0,0,0,0.07)" };
+    ? { "--bg": "#1c1c1e", "--label": "#9ca3af", "--grid": "rgba(255,255,255,0.07)" }
+    : { "--bg": "#ffffff",  "--label": "#111827", "--grid": "rgba(0,0,0,0.07)" };
 
   return (
     <div style={{ height: "100vh", display: "flex", overflow: "hidden", background: "#f2f2f7" }}>

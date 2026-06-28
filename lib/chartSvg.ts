@@ -218,6 +218,11 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const barW = Math.max(1, slotW - barPad * 2);
   const rx = Math.min(8, barW * 0.15);
 
+  // Global font size: use longest format string so all bars show same-sized labels
+  const longestFmt = Math.max(...data.map(d => fmtCurrency(Number(d.y), prefix).length));
+  const maxByWidth = Math.floor(barW * 0.88 / (longestFmt * 0.56));
+  const valF = Math.max(7, Math.min(14, Math.floor(barW * 0.22), maxByWidth));
+
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
@@ -228,18 +233,21 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     const valY = iH - ((v - yFloor) / ySpan) * iH;
     const by = Math.min(valY, zeroY);
     const bh = Math.max(1, Math.abs(zeroY - valY));
-
     const fmtStr = fmtCurrency(v, prefix);
-    const maxByWidth = Math.floor(barW * 0.88 / (fmtStr.length * 0.56));
-    const valF = Math.max(7, Math.min(14, Math.floor(barW * 0.22), maxByWidth));
     const lx = (bx + barW / 2).toFixed(1);
     let label = "";
     if (bh >= valF * 1.5) {
       label = `<text x="${lx}" y="${(by + bh / 2 + valF * 0.35).toFixed(1)}" text-anchor="middle" fill="white" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">${fmtStr}</text>`;
     } else if (bh > 4) {
-      label = `<text x="${lx}" y="${(by - 4).toFixed(1)}" text-anchor="middle" style="fill:var(--label);pointer-events:none" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtStr}</text>`;
+      label = `<text x="${lx}" y="${(by - 4).toFixed(1)}" text-anchor="middle" fill="${c}" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">${fmtStr}</text>`;
     }
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>${label}`;
+  }).join("");
+
+  // Vertical grid lines at bar centers (one per bar column)
+  const xGridLines = data.map((_, i) => {
+    const cx = i * slotW + slotW / 2;
+    return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
 
   const yGridLines = yTicks.map((v) => {
@@ -268,13 +276,13 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     if (rotateX) {
       return `<text transform="translate(${cx.toFixed(1)},${iH + xF2}) rotate(-45)" style="fill:var(--label)" font-size="${xF2}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    const anchor = pos === 0 ? "start" : pos === renderedBarIndices.length - 1 ? "end" : "middle";
-    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `
     <g transform="translate(${pad.left},${pad.top})">
       ${yGridLines}
+      ${xGridLines}
       ${bars}
       ${xLabelTexts}
       ${yLabelTexts}

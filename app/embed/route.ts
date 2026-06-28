@@ -5,8 +5,8 @@ import { kv } from "@vercel/kv";
 import { fetchChartData, fetchChartDataMulti, applyAggregation, fetchFieldFormat } from "@/lib/notionData";
 
 const CSS = `
-  :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #6b7280; }
-  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.1); --label: #9ca3af; }
+  :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #9ca3af; }
+  html[data-theme="light"] { --bg: #ffffff; --grid: rgba(0,0,0,0.1); --label: #111827; }
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); transition: background 0.3s; }
   .wrap { height: 100vh; position: relative; overflow: hidden; background: var(--bg); transition: background 0.3s; }
@@ -238,17 +238,19 @@ const CHART_SCRIPT = `
     var slW=iW/n, bPad=Math.min(slW*0.1,6), bW=Math.max(1,slW-bPad*2), rx=Math.min(8,bW*0.15);
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     var zeroY=iH-((0-yFloor)/ySpan)*iH;
+    // Global font size: use longest format string for consistency across all bars
+    var longestFmt=Math.max.apply(null,s.map(function(d){return fmtFull(+d.y,C.yPrefix||'').length;}));
+    var maxByW=Math.floor(bW*0.88/(longestFmt*0.56));
+    var valF=Math.max(7,Math.min(14,Math.floor(bW*0.22),maxByW));
     var bars='';
     s.forEach(function(d,i){
       var c=colors[i%colors.length],bx=i*slW+bPad;
       var valY=iH-((+d.y-yFloor)/ySpan)*iH,by=Math.min(valY,zeroY),bh=Math.max(1,Math.abs(zeroY-valY));
       bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'"/>';
       var fmtStr=fmtFull(+d.y,C.yPrefix||'');
-      var maxByW=Math.floor(bW*0.88/(fmtStr.length*0.56));
-      var valF=Math.max(7,Math.min(14,Math.floor(bW*0.22),maxByW));
       var lx=(bx+bW/2).toFixed(1);
       if(bh>=valF*1.5){ bars+='<text x="'+lx+'" y="'+(by+bh/2+valF*0.35).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">'+fmtStr+'</text>'; }
-      else if(bh>4){ bars+='<text x="'+lx+'" y="'+(by-4).toFixed(1)+'" text-anchor="middle" style="fill:var(--label);pointer-events:none" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+fmtStr+'</text>'; }
+      else if(bh>4){ bars+='<text x="'+lx+'" y="'+(by-4).toFixed(1)+'" text-anchor="middle" fill="'+c+'" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">'+fmtStr+'</text>'; }
     });
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
@@ -258,16 +260,19 @@ const CHART_SCRIPT = `
       yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';
       yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';
     });
+    // Vertical grid lines at bar centers
+    var xg='';
+    s.forEach(function(d,i){var cx=(i*slW+slW/2).toFixed(1);xg+='<line x1="'+cx+'" y1="0" x2="'+cx+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';});
     var maxL=Math.max(2,Math.floor(iW/55)), stp=Math.max(1,Math.ceil(n/maxL)),xl='';
     var barLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)barLbls.push(i);});
     s.forEach(function(d,i){
       var pos=barLbls.indexOf(i); if(pos===-1) return;
       var cx=(i*slW+slW/2).toFixed(1);
       if(rot) xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
-      else{ var anc=pos===0?'start':pos===barLbls.length-1?'end':'middle'; xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>'; }
+      else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
     state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
-    return '<g transform="translate('+lp+','+tp+')">'+ yg+bars+xl+yl+'</g>';
+    return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+bars+xl+yl+'</g>';
   }
 
   function pie(data,colors,W,H){
