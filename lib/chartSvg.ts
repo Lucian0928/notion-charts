@@ -280,10 +280,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 620, H = 500;
-  const LW = 130, vp = 25;
-  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2); // 150
-  const cx = W / 2, cy = H / 2; // 310, 250
+  const W = 620, H = 400;
+  const LW = 110, vp = 15;
+  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
+  const cx = W / 2, cy = H / 2;
 
   // Build slices
   interface Slice { name: string; value: number; sweep: number; start: number; end: number; mid: number; color: string; pct: number }
@@ -599,10 +599,10 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
   if (total === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const W = 620, H = 500;
-  const LW = 130, vp = 25;
-  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2); // 150
-  const innerR = Math.round(R * 0.5); // 75
+  const W = 620, H = 400;
+  const LW = 110, vp = 15;
+  const R = Math.min((W - 2 * LW - 60) / 2, (H - vp * 2) / 2);
+  const innerR = Math.round(R * 0.5);
   const cx = W / 2, cy = H / 2;
 
   interface Slice { name: string; value: number; sweep: number; start: number; end: number; mid: number; color: string; pct: number }
@@ -737,7 +737,8 @@ function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = "
 }
 
 export function getViewBox(chartType: ChartType): string {
-  if (chartType === "pie" || chartType === "doughnut" || chartType === "radar") return "0 0 620 500";
+  if (chartType === "pie" || chartType === "doughnut") return "0 0 620 400";
+  if (chartType === "radar") return "0 0 620 500";
   return "0 0 800 320";
 }
 

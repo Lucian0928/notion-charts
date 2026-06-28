@@ -265,7 +265,7 @@ const CHART_SCRIPT = `
     data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
     var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
     if(!total) return noData(W,H);
-    var LW=Math.min(Math.floor(W*0.26),220),vp=30;
+    var LW=Math.min(Math.floor(W*0.20),180),vp=15;
     var R=Math.min((W-2*LW-60)/2,(H-vp*2)/2);
     R=Math.max(R,80);
     var cx=W/2,cy=H/2;
@@ -317,7 +317,7 @@ const CHART_SCRIPT = `
     data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
     var entries=Object.entries(agg),total=entries.reduce(function(s,e){return s+e[1];},0);
     if(!total) return noData(W,H);
-    var LW=Math.min(Math.floor(W*0.26),220),vp=30;
+    var LW=Math.min(Math.floor(W*0.20),180),vp=15;
     var R=Math.min((W-2*LW-60)/2,(H-vp*2)/2);
     R=Math.max(R,80);
     var innerR=Math.round(R*0.5);
