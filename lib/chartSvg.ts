@@ -235,13 +235,8 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     const bh = Math.max(1, Math.abs(zeroY - valY));
     const fmtStr = fmtCurrency(v, prefix);
     const lx = (bx + barW / 2).toFixed(1);
-    let label = "";
-    if (bh >= valF * 1.5) {
-      label = `<text x="${lx}" y="${(by + bh / 2 + valF * 0.35).toFixed(1)}" text-anchor="middle" fill="white" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">${fmtStr}</text>`;
-    } else if (bh > 4) {
-      label = `<text x="${lx}" y="${(by - 4).toFixed(1)}" text-anchor="middle" fill="${c}" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">${fmtStr}</text>`;
-    }
-    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>${label}`;
+    const clipId = `bc${i}`;
+    return `<clipPath id="${clipId}"><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}"/></clipPath><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/><text x="${lx}" y="${(by + bh / 2 + valF * 0.35).toFixed(1)}" text-anchor="middle" fill="white" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" clip-path="url(#${clipId})" style="pointer-events:none">${fmtStr}</text>`;
   }).join("");
 
   // Vertical grid lines at bar centers (one per bar column)

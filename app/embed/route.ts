@@ -246,11 +246,11 @@ const CHART_SCRIPT = `
     s.forEach(function(d,i){
       var c=colors[i%colors.length],bx=i*slW+bPad;
       var valY=iH-((+d.y-yFloor)/ySpan)*iH,by=Math.min(valY,zeroY),bh=Math.max(1,Math.abs(zeroY-valY));
-      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'"/>';
       var fmtStr=fmtFull(+d.y,C.yPrefix||'');
-      var lx=(bx+bW/2).toFixed(1);
-      if(bh>=valF*1.5){ bars+='<text x="'+lx+'" y="'+(by+bh/2+valF*0.35).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">'+fmtStr+'</text>'; }
-      else if(bh>4){ bars+='<text x="'+lx+'" y="'+(by-4).toFixed(1)+'" text-anchor="middle" fill="'+c+'" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" style="pointer-events:none">'+fmtStr+'</text>'; }
+      var lx=(bx+bW/2).toFixed(1),clipId='bc'+i;
+      bars+='<clipPath id="'+clipId+'"><rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'"/></clipPath>';
+      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'"/>';
+      bars+='<text x="'+lx+'" y="'+(by+bh/2+valF*0.35).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" clip-path="url(#'+clipId+')" style="pointer-events:none">'+fmtStr+'</text>';
     });
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
