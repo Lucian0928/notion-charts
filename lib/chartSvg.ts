@@ -221,13 +221,14 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
+  const effectiveZeroY = Math.min(zeroY, iH); // clamp bars to chart area when yFloor > 0
   const bars = data.map((d, i) => {
     const c = colors[i % colors.length];
     const bx = i * slotW + barPad;
     const v = Number(d.y);
     const valY = iH - ((v - yFloor) / ySpan) * iH;
-    const by = Math.min(valY, zeroY);
-    const bh = Math.max(1, Math.abs(zeroY - valY));
+    const by = Math.min(valY, effectiveZeroY);
+    const bh = Math.max(1, Math.abs(effectiveZeroY - valY));
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>`;
   }).join("");
 
