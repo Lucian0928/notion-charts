@@ -202,7 +202,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const approxSlotW = (W - lp2 - rp2) / n;
   const rotateX = maxLabelLen * (F2 * 0.6) > approxSlotW - 4;
   const xF2 = rotateX ? Math.max(5, Math.min(F2, Math.floor(lp2 * 1.414 / (maxLabelLen * 0.65 + 1)))) : F2;
-  const pad = { top: 14, right: rp2, bottom: rotateX ? Math.ceil(maxLabelLen * xF2 * 0.65 * 0.707) + 8 : F2 + 14, left: lp2 };
+  const pad = { top: 14, right: rp2, bottom: rotateX ? Math.ceil(maxLabelLen * xF2 * 0.65 * 0.707) + 8 : F2 + 24, left: lp2 };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
@@ -263,7 +263,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     if (rotateX) {
       return `<text transform="translate(${cx.toFixed(1)},${iH + xF2}) rotate(-45)" style="fill:var(--label)" font-size="${xF2}" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
     }
-    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 14).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
   return `
