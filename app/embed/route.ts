@@ -238,19 +238,12 @@ const CHART_SCRIPT = `
     var slW=iW/n, bPad=Math.min(slW*0.1,6), bW=Math.max(1,slW-bPad*2), rx=Math.min(8,bW*0.15);
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     var zeroY=iH-((0-yFloor)/ySpan)*iH;
-    // Global font size: use longest format string for consistency across all bars
-    var longestFmt=Math.max.apply(null,s.map(function(d){return fmtFull(+d.y,C.yPrefix||'').length;}));
-    var maxByW=Math.floor(bW*0.88/(longestFmt*0.56));
-    var valF=Math.max(7,Math.min(14,Math.floor(bW*0.22),maxByW));
+    var total=ys.reduce(function(a,b){return a+b;},0);
     var bars='';
     s.forEach(function(d,i){
       var c=colors[i%colors.length],bx=i*slW+bPad;
       var valY=iH-((+d.y-yFloor)/ySpan)*iH,by=Math.min(valY,zeroY),bh=Math.max(1,Math.abs(zeroY-valY));
-      var fmtStr=fmtFull(+d.y,C.yPrefix||'');
-      var lx=(bx+bW/2).toFixed(1),clipId='bc'+i;
-      bars+='<clipPath id="'+clipId+'"><rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'"/></clipPath>';
-      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'"/>';
-      bars+='<text x="'+lx+'" y="'+(by+bh/2+valF*0.35).toFixed(1)+'" text-anchor="middle" fill="white" font-size="'+valF+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" clip-path="url(#'+clipId+')" style="pointer-events:none">'+fmtStr+'</text>';
+      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'" style="cursor:pointer"/>';
     });
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
@@ -271,7 +264,7 @@ const CHART_SCRIPT = `
       if(rot) xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
       else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
-    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
+    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW,total:total,colors:colors};
     return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+bars+xl+yl+'</g>';
   }
 
@@ -412,8 +405,9 @@ const CHART_SCRIPT = `
       var idx=Math.floor((vx-state.lp)/state.slW);
       if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
       var d=state.s[idx];
-      var yVal=state.yFields?state.yFields.map(function(yf){return yf+': '+fmt(+d[yf]||0);}).join('  &nbsp;'):fmt(+d.y);
-      tip.innerHTML='<span style="color:#9ca3af">'+lbl(String(d.x))+'</span>  '+yVal;
+      var bc=state.colors[idx%state.colors.length];
+      var bpct=state.total>0?(+d.y/state.total*100):0;
+      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.cx,dy=vy-state.cy,dist=Math.sqrt(dx*dx+dy*dy);

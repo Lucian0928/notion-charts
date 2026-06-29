@@ -218,11 +218,6 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
   const barW = Math.max(1, slotW - barPad * 2);
   const rx = Math.min(8, barW * 0.15);
 
-  // Global font size: use longest format string so all bars show same-sized labels
-  const longestFmt = Math.max(...data.map(d => fmtCurrency(Number(d.y), prefix).length));
-  const maxByWidth = Math.floor(barW * 0.88 / (longestFmt * 0.56));
-  const valF = Math.max(7, Math.min(14, Math.floor(barW * 0.22), maxByWidth));
-
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
   const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
@@ -233,10 +228,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     const valY = iH - ((v - yFloor) / ySpan) * iH;
     const by = Math.min(valY, zeroY);
     const bh = Math.max(1, Math.abs(zeroY - valY));
-    const fmtStr = fmtCurrency(v, prefix);
-    const lx = (bx + barW / 2).toFixed(1);
-    const clipId = `bc${i}`;
-    return `<clipPath id="${clipId}"><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}"/></clipPath><rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/><text x="${lx}" y="${(by + bh / 2 + valF * 0.35).toFixed(1)}" text-anchor="middle" fill="white" font-size="${valF}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif" clip-path="url(#${clipId})" style="pointer-events:none">${fmtStr}</text>`;
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>`;
   }).join("");
 
   // Vertical grid lines at bar centers (one per bar column)
