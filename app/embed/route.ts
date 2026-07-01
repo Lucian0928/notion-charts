@@ -674,11 +674,16 @@ const CHART_SCRIPT = `
     }).join('');
     var legend='';
     if(isMulti){
+      var lgGap=16;
+      var lgLabels=fields.map(function(yf){return yf.length>16?yf.slice(0,15)+'…':yf;});
+      var lgWidths=lgLabels.map(function(lbl){return 12+lbl.length*5.5;});
+      var lgTotalW=lgWidths.reduce(function(a,b){return a+b;},0)+(fields.length-1)*lgGap;
+      var lgCurX=cx-lgTotalW/2;
       legend=fields.map(function(yf,si){
         var c=colors[si%colors.length];
-        var lbl=yf.length>16?yf.slice(0,15)+'…':yf;
-        var lx=(cx-(fields.length-1)*55+si*110).toFixed(0);
-        return'<g transform="translate('+lx+','+(H-18)+')"><circle cx="6" cy="0" r="3.5" fill="'+c+'"/><text x="13" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">'+lbl+'</text></g>';
+        var lx=lgCurX.toFixed(0);
+        lgCurX+=lgWidths[si]+lgGap;
+        return'<g transform="translate('+lx+','+(H-18)+')"><circle cx="4" cy="0" r="3.5" fill="'+c+'"/><text x="12" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">'+lgLabels[si]+'</text></g>';
       }).join('');
     }
     state={type:'radar',dots:allDots,categories:categories,seriesVals:seriesVals,fieldNames:isMulti?fields:null,colors:colors};

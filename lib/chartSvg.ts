@@ -843,11 +843,16 @@ function renderMultiSeriesRadarChart(
     return `<g>${polygon}${dots}</g>`;
   }).join("");
 
+  const legendGap = 16;
+  const legendLabels = yFields.map(yf => yf.length > 16 ? yf.slice(0, 15) + "…" : yf);
+  const legendItemWidths = legendLabels.map(lbl => 12 + lbl.length * 5.5);
+  const legendTotalW = legendItemWidths.reduce((a, b) => a + b, 0) + (yFields.length - 1) * legendGap;
+  let legendCurX = cx - legendTotalW / 2;
   const legend = yFields.map((yf, si) => {
     const c = colors[si % colors.length];
-    const label = yf.length > 16 ? yf.slice(0, 15) + "…" : yf;
-    const lx = cx - (yFields.length - 1) * 55 + si * 110;
-    return `<g transform="translate(${lx.toFixed(0)},${H - 18})"><circle cx="6" cy="0" r="3.5" fill="${c}"/><text x="13" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">${label}</text></g>`;
+    const lx = legendCurX;
+    legendCurX += legendItemWidths[si] + legendGap;
+    return `<g transform="translate(${lx.toFixed(0)},${H - 18})"><circle cx="4" cy="0" r="3.5" fill="${c}"/><text x="12" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">${legendLabels[si]}</text></g>`;
   }).join("");
 
   return ANIM_CSS + `<g>${gridPolygons}${axes}${seriesSvg}${axisLabels}${legend}</g>`;
