@@ -58,11 +58,7 @@ function resolveMinY(ys: number[], sp?: number | "auto"): number {
     const mag = Math.pow(10, Math.floor(Math.log10(Math.max(Math.abs(rough), 1e-10))));
     return Math.floor(rough / mag) * mag;
   }
-  if (sp !== "auto") return 0;
-  if (minVal === 0) return 0;
-  const rough = minVal * 0.9;
-  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(rough, 1e-10))));
-  return Math.floor(rough / mag) * mag;
+  return 0;
 }
 
 function smartTicksFrom(minY: number, maxY: number): number[] {
@@ -125,7 +121,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
-  const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
+  const zeroY = Math.min(iH - ((0 - yFloor) / ySpan) * iH, iH);
   const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d.y))]);
   const linePath = smoothLinePath(pts);
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
@@ -419,7 +415,7 @@ function renderMultiSeriesLineChart(
     return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
 
-  const zeroY = iH - ((0 - yFloor) / ySpan) * iH;
+  const zeroY = Math.min(iH - ((0 - yFloor) / ySpan) * iH, iH);
   const seriesSvg = yFields.map((yf, si) => {
     const c = colors[si % colors.length];
     const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d[yf]) || 0)]);
