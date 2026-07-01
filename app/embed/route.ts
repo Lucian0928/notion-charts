@@ -294,9 +294,10 @@ const CHART_SCRIPT = `
       var lg=s.sweep>Math.PI?1:0;
       return '<path id="ps'+s.idx+'" d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" class="chart-sector" style="cursor:pointer;animation-delay:'+(s.idx*80)+'ms"/>';
     }).join('');
-    // legend-swatch labels in left/right columns (no connector lines)
-    var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
-    var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
+    // legend-swatch labels in left/right columns — split evenly by count
+    var half=Math.ceil(slices.length/2);
+    var rightG=slices.slice(0,half);
+    var leftG=slices.slice(half);
     var fSz=Math.min(14,Math.max(10,H/50)),rowH=fSz+11,swW=Math.round(fSz*2),swH=Math.round(fSz*0.8);
     function placeY(grp){
       var n=grp.length,tot=n*rowH;
@@ -351,9 +352,10 @@ const CHART_SCRIPT = `
     var cy1=(cy+bigF*0.35-(smF+4)/2).toFixed(1),cy2=(cy+bigF*0.35+(bigF*0.15+4+smF*0.85)-(smF+4)/2).toFixed(1);
     var ctr='<text x="'+cx.toFixed(1)+'" y="'+cy1+'" style="fill:var(--label);pointer-events:none" font-size="'+bigF+'" font-weight="700" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+totalStr+'</text>';
     ctr+='<text x="'+cx.toFixed(1)+'" y="'+cy2+'" style="fill:var(--label);opacity:0.55;pointer-events:none" font-size="'+smF+'" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">Total</text>';
-    // legend swatch labels (same as pie)
-    var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
-    var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
+    // legend swatch labels — split evenly by count
+    var half=Math.ceil(slices.length/2);
+    var rightG=slices.slice(0,half);
+    var leftG=slices.slice(half);
     var fSz=Math.min(14,Math.max(10,H/50)),rowH=fSz+11,swW=Math.round(fSz*2),swH=Math.round(fSz*0.8);
     function placeY(grp){
       var n=grp.length,tot=n*rowH;

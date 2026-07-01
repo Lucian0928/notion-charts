@@ -334,9 +334,10 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
     return `<path d="M${cx.toFixed(1)},${cy.toFixed(1)} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${sd.color}" class="chart-sector" style="stroke:var(--bg);stroke-width:1.5;animation-delay:${i * 80}ms"/>`;
   }).join("");
 
-  // Legend-swatch labels in left/right columns (no connector lines)
-  const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
-  const rightG = sliceData.filter(s => Math.cos(s.mid) >= 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  // Legend-swatch labels in left/right columns — split evenly by count
+  const half = Math.ceil(sliceData.length / 2);
+  const rightG = sliceData.slice(0, half);
+  const leftG = sliceData.slice(half);
   const fSz = 11, rowH = fSz + 9, swW = 22, swH = 9;
 
   function placeY(grp: Slice[]): { s: Slice; y: number }[] {
@@ -678,9 +679,10 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
   const cy2 = cy + bigF * 0.35 + (bigF * 0.15 + 4 + smF * 0.85) - (smF + 4) / 2;
   slices += `<text x="${cx}" y="${cy1.toFixed(1)}" style="fill:var(--label)" font-size="${bigF}" font-weight="700" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTotal}</text><text x="${cx}" y="${cy2.toFixed(1)}" style="fill:var(--label)" font-size="${smF}" text-anchor="middle" font-family="ui-monospace,monospace">Total</text>`;
 
-  // Legend-swatch labels in left/right columns (same as pie)
-  const leftG = sliceData.filter(s => Math.cos(s.mid) < 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
-  const rightG = sliceData.filter(s => Math.cos(s.mid) >= 0).sort((a, b) => Math.sin(a.mid) - Math.sin(b.mid));
+  // Legend-swatch labels in left/right columns — split evenly by count
+  const half = Math.ceil(sliceData.length / 2);
+  const rightG = sliceData.slice(0, half);
+  const leftG = sliceData.slice(half);
   const fSz = 11, rowH = fSz + 9, swW = 22, swH = 9;
 
   function placeY(grp: Slice[]): { s: Slice; y: number }[] {
