@@ -583,11 +583,26 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
     return `<text x="-6" y="${(cy2 + 3.5).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  const xGridLines = xTicks.map(v => {
-    const x = ((v - xFloor) / xSpan) * iW;
-    if (x < -2 || x > iW + 2) return "";
-    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
-  }).join("");
+  // Vertical grid lines: left edge, tick positions, right edge
+  const xGridLines = [
+    `<line x1="0" y1="0" x2="0" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+    ...xTicks.map(v => {
+      const x = ((v - xFloor) / xSpan) * iW;
+      if (x < -2 || x > iW + 2) return "";
+      return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
+    }),
+    `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+  ].join("");
+
+  // Horizontal grid lines: top edge, bar centers, bottom edge
+  const yGridLines = [
+    `<line x1="0" y1="0" x2="${iW}" y2="0" style="stroke:var(--grid)" stroke-width="1"/>`,
+    ...data.map((_, i) => {
+      const cy2 = i * slotH + slotH / 2;
+      return `<line x1="0" y1="${cy2.toFixed(1)}" x2="${iW}" y2="${cy2.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+    }),
+    `<line x1="0" y1="${iH}" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+  ].join("");
 
   const xLabelTexts = xTicks.map(v => {
     const x = ((v - xFloor) / xSpan) * iW;
@@ -595,7 +610,7 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
     return `<text x="${x.toFixed(1)}" y="${(iH + 14).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
 
-  return `<g transform="translate(${lp},${tp})">${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
+  return `<g transform="translate(${lp},${tp})">${yGridLines}${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
 }
 
 function fmtCurrency(v: number, prefix: string): string {

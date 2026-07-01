@@ -416,6 +416,14 @@ const CHART_SCRIPT = `
         tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
       }
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
+    } else if(state.type==='hbar'){
+      if(vx<state.lp||vx>state.lp+state.iW||vy<state.tp||vy>state.tp+state.iH){tip.style.opacity='0';return;}
+      var idx=Math.floor((vy-state.tp)/state.slH);
+      if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
+      var d=state.s[idx];
+      var bc=state.colors[idx%state.colors.length];
+      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
+      tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.cx,dy=vy-state.cy,dist=Math.sqrt(dx*dx+dy*dy);
       if(dist>state.R||(state.innerR>0&&dist<state.innerR)){
@@ -545,6 +553,39 @@ const CHART_SCRIPT = `
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+xl+yl+legend+'</g>';
   }
 
+  function hbar(data,colors,W,H){
+    var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
+    if(!s.length) return noData(W,H);
+    var n=s.length,lp=90,rp=16,tp=14,bp=24;
+    var iW=W-lp-rp,iH=H-tp-bp;
+    var ys=s.map(function(d){return+d.y;}),maxY=Math.max.apply(null,ys)||1;
+    var xFloor=resolveMin(ys),xTicks=smartTicksFrom(xFloor,maxY),xCeil=xTicks[xTicks.length-1]||1,xSpan=xCeil-xFloor||1;
+    var slH=iH/n,bPad=Math.min(slH*0.2,6),bH=Math.max(1,slH-bPad*2),rx=Math.min(3,bH*0.25);
+    var zeroX=((0-xFloor)/xSpan)*iW;
+    state={type:'hbar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slH:slH,colors:colors};
+    var bars=s.map(function(d,i){
+      var c=colors[i%colors.length],by=i*slH+bPad;
+      var valX=((+d.y-xFloor)/xSpan)*iW,bx=Math.min(valX,zeroX),bw=Math.max(1,Math.abs(valX-zeroX));
+      return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bH.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'" style="cursor:pointer"/>';
+    }).join('');
+    var maxL=Math.max(2,Math.floor(iH/20)),lsStep=Math.max(1,Math.ceil(n/maxL)),yl='';
+    s.forEach(function(d,i){
+      if(i%lsStep!==0&&i!==n-1)return;
+      var cy2=i*slH+slH/2;
+      var label=String(d.x).length>12?String(d.x).slice(0,11)+'…':String(d.x);
+      yl+='<text x="-6" y="'+(cy2+3.5).toFixed(1)+'" style="fill:var(--label)" font-size="8" text-anchor="end" font-family="ui-monospace,monospace">'+label+'</text>';
+    });
+    var xg='<line x1="0" y1="0" x2="0" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    xTicks.forEach(function(v){var x=((v-xFloor)/xSpan)*iW;if(x<-2||x>iW+2)return;xg+='<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';});
+    xg+='<line x1="'+iW+'" y1="0" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    var yg='<line x1="0" y1="0" x2="'+iW+'" y2="0" style="stroke:var(--grid)" stroke-width="1"/>';
+    s.forEach(function(d,i){var cy2=(i*slH+slH/2).toFixed(1);yg+='<line x1="0" y1="'+cy2+'" x2="'+iW+'" y2="'+cy2+'" style="stroke:var(--grid)" stroke-width="1"/>';});
+    yg+='<line x1="0" y1="'+iH+'" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    var xl='';
+    xTicks.forEach(function(v){var x=((v-xFloor)/xSpan)*iW;if(x<-2||x>iW+2)return;xl+='<text x="'+x.toFixed(1)+'" y="'+(iH+14)+'" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
+    return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+yl+xl+'</g>';
+  }
+
   var first=true;
   function render(){
     var d=dims(), W=d[0], H=d[1];
@@ -554,6 +595,7 @@ const CHART_SCRIPT = `
     var html=C.error
       ?'<text style="fill:#f87171" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">'+C.error+'</text>'
       :C.chartType==='bar'?(yFs?barMulti(D,yFs,colors,W,H):bar(D,colors,W,H))
+      :C.chartType==='hbar'?hbar(D,colors,W,H)
       :C.chartType==='pie'?pie(D,colors,W,H)
       :C.chartType==='doughnut'?doughnut(D,colors,W,H)
       :C.chartType==='kpi'?kpi(D,colors[0],W,H)
