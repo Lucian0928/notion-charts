@@ -21,8 +21,6 @@ const CSS = `
   .chart-hbar { transform-box: fill-box; transform-origin: 0% 50%; animation: chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-sector { transform-box: view-box; transform-origin: 50% 50%; animation: chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-fill { opacity: 0; }
-  @keyframes chartRadarEnter { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
-  .chart-radar { transform-box: view-box; transform-origin: 50% 50%; animation: chartRadarEnter 0.6s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
   .lg-pill {
     display: flex; align-items: center; height: 38px; border-radius: 999px; padding: 3px;
@@ -457,7 +455,17 @@ const CHART_SCRIPT = `
       var closest=null,minDist=36;
       state.dots.forEach(function(dot){var ddx=vx-dot.x,ddy=vy-dot.y,dd=Math.sqrt(ddx*ddx+ddy*ddy);if(dd<minDist){minDist=dd;closest=dot;}});
       if(closest){
-        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+state.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+closest.name+'</b><span style="color:#6b7280;margin-left:8px">'+fmtFull(closest.value,C.yPrefix||'')+'</span>';
+        var ci=closest.catIdx,catName=state.categories[ci];
+        var html2='<b style="color:#e2e8f0">'+catName+'</b>';
+        if(state.fieldNames){
+          state.fieldNames.forEach(function(fn,si){
+            var c2=state.colors[si%state.colors.length];
+            html2+='<br><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+c2+';margin-right:4px;vertical-align:middle"></span><span style="color:#9ca3af">'+fn+'</span><span style="color:#6b7280;margin-left:6px">'+fmtFull(state.seriesVals[si][ci],C.yPrefix||'')+'</span>';
+          });
+        } else {
+          html2+='<span style="color:#6b7280;margin-left:8px">'+fmtFull(state.seriesVals[0][ci],C.yPrefix||'')+'</span>';
+        }
+        tip.innerHTML=html2;
         tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
       } else { tip.style.opacity='0'; }
     }
@@ -476,8 +484,16 @@ const CHART_SCRIPT = `
     if(state.type==='radar'){
       var rc=null,rmd=44;
       state.dots.forEach(function(dot){var ddx=vx2-dot.x,ddy=vy2-dot.y,dd=Math.sqrt(ddx*ddx+ddy*ddy);if(dd<rmd){rmd=dd;rc=dot;}});
-      if(rc){tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+state.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+rc.name+'</b><span style="color:#6b7280;margin-left:8px">'+fmtFull(rc.value,C.yPrefix||'')+'</span>';tip.style.left=tx2+'px';tip.style.top=ty2+'px';tip.style.opacity='1';}
-      else{tip.style.opacity='0';}
+      if(rc){
+        var rci=rc.catIdx,rcn=state.categories[rci];
+        var rh='<b style="color:#e2e8f0">'+rcn+'</b>';
+        if(state.fieldNames){
+          state.fieldNames.forEach(function(fn,si){var c2=state.colors[si%state.colors.length];rh+='<br><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+c2+';margin-right:4px;vertical-align:middle"></span><span style="color:#9ca3af">'+fn+'</span><span style="color:#6b7280;margin-left:6px">'+fmtFull(state.seriesVals[si][rci],C.yPrefix||'')+'</span>';});
+        } else {
+          rh+='<span style="color:#6b7280;margin-left:8px">'+fmtFull(state.seriesVals[0][rci],C.yPrefix||'')+'</span>';
+        }
+        tip.innerHTML=rh;tip.style.left=tx2+'px';tip.style.top=ty2+'px';tip.style.opacity='1';
+      } else{tip.style.opacity='0';}
       return;
     }
     var dx2=vx2-state.cx,dy2=vy2-state.cy,dist2=Math.sqrt(dx2*dx2+dy2*dy2);
@@ -603,32 +619,70 @@ const CHART_SCRIPT = `
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+yl+xl+'</g>';
   }
 
-  function radar(data,color,W,H){
-    var agg={};
-    data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
-    var entries=Object.entries(agg).slice(0,8),n=entries.length;
+  function radar(data,yFs,colors,W,H){
+    var isMulti=yFs&&yFs.length>1;
+    var catOrder=[],catSet={};
+    data.forEach(function(d){var k=String(d.x);if(!catSet[k]){catSet[k]=1;catOrder.push(k);}});
+    var categories=catOrder.slice(0,8),n=categories.length;
     if(n<3) return '<text style="fill:var(--label)" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">Radar needs ≥ 3 categories</text>';
     var cx=W/2,cy=H/2,R=Math.max(40,Math.min(cx,cy)-80);
-    var maxVal=Math.max.apply(null,entries.map(function(e){return e[1]||0;}))||1;
+    var fields=isMulti?yFs:null;
+    // build per-series aggregations: seriesVals[si][ci]
+    var seriesVals;
+    if(isMulti){
+      seriesVals=fields.map(function(yf){
+        var agg={};
+        data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d[yf]||0);});
+        return categories.map(function(c){return agg[c]||0;});
+      });
+    } else {
+      var agg0={};
+      data.forEach(function(d){var k=String(d.x);agg0[k]=(agg0[k]||0)+(+d.y||0);});
+      seriesVals=[categories.map(function(c){return agg0[c]||0;})];
+    }
+    var allVals=[].concat.apply([],seriesVals.map(function(sv){return sv;}));
+    var maxVal=Math.max.apply(null,allVals)||1;
     var levels=4,gridPolys='';
     for(var l=0;l<levels;l++){
       var rr=R*(l+1)/levels;
-      var gpts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;return(cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1);}).join(' ');
+      var gpts=categories.map(function(c,i){var a=i*2*Math.PI/n-Math.PI/2;return(cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1);}).join(' ');
       gridPolys+='<polygon points="'+gpts+'" fill="none" style="stroke:var(--grid)" stroke-width="1"/>';
     }
-    var axes=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;return'<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+R*Math.cos(a)).toFixed(1)+'" y2="'+(cy+R*Math.sin(a)).toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';}).join('');
+    var axes=categories.map(function(c,i){var a=i*2*Math.PI/n-Math.PI/2;return'<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+R*Math.cos(a)).toFixed(1)+'" y2="'+(cy+R*Math.sin(a)).toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';}).join('');
     var lblR=R+22;
-    var dotPts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return{name:e[0],value:e[1],x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};});
-    state={type:'radar',dots:dotPts,color:color};
-    var axisLbls=entries.map(function(e,i){
+    var axisLbls=categories.map(function(cat,i){
       var a=i*2*Math.PI/n-Math.PI/2;
-      var nm=e[0].length>20?e[0].slice(0,19)+'…':e[0];
+      var nm=cat.length>20?cat.slice(0,19)+'…':cat;
       var anc=Math.cos(a)>0.1?'start':Math.cos(a)<-0.1?'end':'middle';
       return'<text x="'+(cx+lblR*Math.cos(a)).toFixed(1)+'" y="'+(cy+lblR*Math.sin(a)+4).toFixed(1)+'" style="fill:var(--label)" font-size="11" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+nm+'</text>';
     }).join('');
-    var dataPts=dotPts.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
-    var dots=dotPts.map(function(p){return'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="5" fill="'+color+'" fill-opacity="0.85" style="cursor:pointer"/>';}).join('');
-    return'<g>'+gridPolys+axes+'<g class="chart-radar"><polygon points="'+dataPts+'" fill="'+color+'" fill-opacity="0.2" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+dots+'</g>'+axisLbls+'</g>';
+    var centerPts=categories.map(function(){return cx.toFixed(1)+','+cy.toFixed(1);}).join(' ');
+    var allDots=[];
+    var seriesSvg=seriesVals.map(function(vals,si){
+      var c=colors[si%colors.length];
+      var finalPts=categories.map(function(cat,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*vals[i]/maxVal;return(cx+r*Math.cos(a)).toFixed(1)+','+(cy+r*Math.sin(a)).toFixed(1);}).join(' ');
+      var delay=(si*0.15).toFixed(2)+'s';
+      var anim='calcMode="spline" keySplines="0.22 1 0.36 1" keyTimes="0;1" dur="0.6s" begin="'+delay+'" fill="freeze"';
+      var poly='<polygon points="'+centerPts+'" fill="'+c+'" fill-opacity="0.12" stroke="'+c+'" stroke-width="2" stroke-linejoin="round"><animate attributeName="points" from="'+centerPts+'" to="'+finalPts+'" '+anim+'/></polygon>';
+      var dots=categories.map(function(cat,i){
+        var a=i*2*Math.PI/n-Math.PI/2;var r=R*vals[i]/maxVal;
+        var dx=(cx+r*Math.cos(a)),dy=(cy+r*Math.sin(a));
+        allDots.push({catIdx:i,si:si,x:dx,y:dy});
+        return'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(isMulti?4:5)+'" fill="'+c+'" fill-opacity="0.85" style="cursor:pointer"><animate attributeName="cx" from="'+cx.toFixed(1)+'" to="'+dx.toFixed(1)+'" '+anim+'/><animate attributeName="cy" from="'+cy.toFixed(1)+'" to="'+dy.toFixed(1)+'" '+anim+'/></circle>';
+      }).join('');
+      return'<g>'+poly+dots+'</g>';
+    }).join('');
+    var legend='';
+    if(isMulti){
+      legend=fields.map(function(yf,si){
+        var c=colors[si%colors.length];
+        var lbl=yf.length>16?yf.slice(0,15)+'…':yf;
+        var lx=(cx-(fields.length-1)*55+si*110).toFixed(0);
+        return'<g transform="translate('+lx+','+(H-18)+')"><circle cx="6" cy="0" r="3.5" fill="'+c+'"/><text x="13" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">'+lbl+'</text></g>';
+      }).join('');
+    }
+    state={type:'radar',dots:allDots,categories:categories,seriesVals:seriesVals,fieldNames:isMulti?fields:null,colors:colors};
+    return'<g>'+gridPolys+axes+seriesSvg+axisLbls+legend+'</g>';
   }
 
   var first=true;
@@ -644,7 +698,7 @@ const CHART_SCRIPT = `
       :C.chartType==='pie'?pie(D,colors,W,H)
       :C.chartType==='doughnut'?doughnut(D,colors,W,H)
       :C.chartType==='kpi'?kpi(D,colors[0],W,H)
-      :C.chartType==='radar'?radar(D,colors[0],W,H)
+      :C.chartType==='radar'?radar(D,yFs,colors,W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     pieActive=null;
     if(!first) svg.style.animation='none';

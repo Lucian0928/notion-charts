@@ -11,8 +11,6 @@ const ANIM_CSS = `<style>
 @keyframes chartSectorEnter{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
 @keyframes chartLineDraw{to{stroke-dashoffset:0}}
 @keyframes chartFillFade{from{opacity:0}to{opacity:1}}
-.chart-radar{transform-box:view-box;transform-origin:50% 50%;animation:chartRadarEnter 0.6s cubic-bezier(0.22,1,0.36,1) both}
-@keyframes chartRadarEnter{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
 </style>`;
 
 function polylineLen(pts: [number, number][]): number {
@@ -761,19 +759,98 @@ function renderRadarChart(rawData: { x: any; y: any }[], color: string): string 
     return `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  const pts = entries.map(([, v], i) => {
+  const centerPts = Array.from({ length: n }, () => `${cx.toFixed(1)},${cy.toFixed(1)}`).join(" ");
+  const finalPts = entries.map(([, v], i) => {
     const a = (i * 2 * Math.PI / n) - Math.PI / 2;
     const r = R * (v / maxVal);
     return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
   }).join(" ");
+  const anim = `calcMode="spline" keySplines="0.22 1 0.36 1" keyTimes="0;1" dur="0.6s" begin="0s" fill="freeze"`;
+
+  const polygon = `<polygon points="${centerPts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"><animate attributeName="points" from="${centerPts}" to="${finalPts}" ${anim}/></polygon>`;
 
   const dots = entries.map(([, v], i) => {
     const a = (i * 2 * Math.PI / n) - Math.PI / 2;
     const r = R * (v / maxVal);
-    return `<circle cx="${(cx + r * Math.cos(a)).toFixed(1)}" cy="${(cy + r * Math.sin(a)).toFixed(1)}" r="4" fill="${color}" fill-opacity="0.8"/>`;
+    const dx = (cx + r * Math.cos(a)).toFixed(1), dy = (cy + r * Math.sin(a)).toFixed(1);
+    return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${color}" fill-opacity="0.8"><animate attributeName="cx" from="${cx.toFixed(1)}" to="${dx}" ${anim}/><animate attributeName="cy" from="${cy.toFixed(1)}" to="${dy}" ${anim}/></circle>`;
   }).join("");
 
-  return ANIM_CSS + `<g>${gridPolygons}${axes}<g class="chart-radar"><polygon points="${pts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}</g>${axisLabels}</g>`;
+  return ANIM_CSS + `<g>${gridPolygons}${axes}${polygon}${dots}${axisLabels}</g>`;
+}
+
+function renderMultiSeriesRadarChart(
+  rawData: Record<string, any>[],
+  yFields: string[],
+  colors: string[],
+): string {
+  const catOrder: string[] = [];
+  const catSet = new Set<string>();
+  rawData.forEach(d => { const k = String(d.x); if (!catSet.has(k)) { catSet.add(k); catOrder.push(k); } });
+  const categories = catOrder.slice(0, 8);
+  const n = categories.length;
+  if (n < 3)
+    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">Radar needs ≥ 3 categories</text>`;
+
+  const seriesAgg = yFields.map(yf => {
+    const agg: Record<string, number> = {};
+    rawData.forEach(d => { const k = String(d.x); agg[k] = (agg[k] || 0) + (Number(d[yf]) || 0); });
+    return categories.map(c => agg[c] || 0);
+  });
+  const maxVal = Math.max(...seriesAgg.flat(), 1);
+
+  const W = 620, H = 500, cx = W / 2, cy = H / 2, R = Math.min(cx, cy) - 80;
+
+  const gridPolygons = Array.from({ length: 4 }, (_, l) => {
+    const r = R * ((l + 1) / 4);
+    const pts = Array.from({ length: n }, (_, i) => {
+      const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+      return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+    }).join(" ");
+    return `<polygon points="${pts}" fill="none" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+
+  const axes = Array.from({ length: n }, (_, i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    return `<line x1="${cx}" y1="${cy}" x2="${(cx + R * Math.cos(a)).toFixed(1)}" y2="${(cy + R * Math.sin(a)).toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
+
+  const axisLabels = categories.map((name, i) => {
+    const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+    const label = name.length > 20 ? name.slice(0, 19) + "…" : name;
+    const anchor = Math.cos(a) > 0.1 ? "start" : Math.cos(a) < -0.1 ? "end" : "middle";
+    return `<text x="${(cx + (R + 22) * Math.cos(a)).toFixed(1)}" y="${(cy + (R + 22) * Math.sin(a) + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
+  }).join("");
+
+  const centerPts = Array.from({ length: n }, () => `${cx.toFixed(1)},${cy.toFixed(1)}`).join(" ");
+  const seriesSvg = yFields.map((yf, si) => {
+    const c = colors[si % colors.length];
+    const vals = seriesAgg[si];
+    const finalPts = categories.map((_, i) => {
+      const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+      const r = R * (vals[i] / maxVal);
+      return `${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`;
+    }).join(" ");
+    const delay = `${(si * 0.15).toFixed(2)}s`;
+    const anim = `calcMode="spline" keySplines="0.22 1 0.36 1" keyTimes="0;1" dur="0.6s" begin="${delay}" fill="freeze"`;
+    const polygon = `<polygon points="${centerPts}" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="2" stroke-linejoin="round"><animate attributeName="points" from="${centerPts}" to="${finalPts}" ${anim}/></polygon>`;
+    const dots = categories.map((_, i) => {
+      const a = (i * 2 * Math.PI / n) - Math.PI / 2;
+      const r = R * (vals[i] / maxVal);
+      const dx = (cx + r * Math.cos(a)).toFixed(1), dy = (cy + r * Math.sin(a)).toFixed(1);
+      return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${c}" fill-opacity="0.8"><animate attributeName="cx" from="${cx.toFixed(1)}" to="${dx}" ${anim}/><animate attributeName="cy" from="${cy.toFixed(1)}" to="${dy}" ${anim}/></circle>`;
+    }).join("");
+    return `<g>${polygon}${dots}</g>`;
+  }).join("");
+
+  const legend = yFields.map((yf, si) => {
+    const c = colors[si % colors.length];
+    const label = yf.length > 16 ? yf.slice(0, 15) + "…" : yf;
+    const lx = cx - (yFields.length - 1) * 55 + si * 110;
+    return `<g transform="translate(${lx.toFixed(0)},${H - 18})"><circle cx="6" cy="0" r="3.5" fill="${c}"/><text x="13" y="3.5" style="fill:var(--label)" font-size="9" font-family="ui-monospace,monospace">${label}</text></g>`;
+  }).join("");
+
+  return ANIM_CSS + `<g>${gridPolygons}${axes}${seriesSvg}${axisLabels}${legend}</g>`;
 }
 
 function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = ""): string {
@@ -815,7 +892,7 @@ export function renderSvgChart(
     if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, startingPoint);
     if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
     if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color, prefix);
-    if (chartType === "radar") return renderRadarChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color);
+    if (chartType === "radar") return renderMultiSeriesRadarChart(multi, yFields, resolvedColors);
     return renderMultiSeriesLineChart(multi, yFields, resolvedColors, startingPoint);
   }
   const single: { x: any; y: any }[] = (yFields && yFields.length === 1)
