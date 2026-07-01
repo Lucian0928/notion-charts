@@ -14,6 +14,12 @@ const CSS = `
     from { opacity: 0; transform: translateY(22px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  @keyframes chartBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes chartHBarGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes chartSectorEnter { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: scale(1); } }
+  .chart-bar { transform-box: fill-box; transform-origin: 50% 100%; animation: chartBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+  .chart-hbar { transform-box: fill-box; transform-origin: 0% 50%; animation: chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+  .chart-sector { transform-box: view-box; transform-origin: 50% 50%; animation: chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
   .lg-pill {
     display: flex; align-items: center; height: 38px; border-radius: 999px; padding: 3px;
@@ -243,7 +249,7 @@ const CHART_SCRIPT = `
     s.forEach(function(d,i){
       var c=colors[i%colors.length],bx=i*slW+bPad;
       var valY=iH-((+d.y-yFloor)/ySpan)*iH,by=Math.min(valY,zeroY),bh=Math.max(1,Math.abs(zeroY-valY));
-      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'" style="cursor:pointer"/>';
+      bars+='<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" rx="'+rx+'" class="chart-bar" style="cursor:pointer;animation-delay:'+(i*40)+'ms"/>';
     });
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){
@@ -285,7 +291,7 @@ const CHART_SCRIPT = `
       var x1=cx+R*Math.cos(s.start),y1=cy+R*Math.sin(s.start);
       var x2=cx+R*Math.cos(s.end),y2=cy+R*Math.sin(s.end);
       var lg=s.sweep>Math.PI?1:0;
-      return '<path id="ps'+s.idx+'" d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" style="cursor:pointer;transition:transform 0.15s ease;"/>';
+      return '<path id="ps'+s.idx+'" d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" class="chart-sector" style="cursor:pointer;animation-delay:'+(s.idx*80)+'ms"/>';
     }).join('');
     var center='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2" fill="var(--bg)" style="pointer-events:none;"/>';
     // legend-swatch labels in left/right columns (no connector lines)
@@ -337,7 +343,7 @@ const CHART_SCRIPT = `
       var x1i=cx+innerR*Math.cos(s.end),y1i=cy+innerR*Math.sin(s.end);
       var x2i=cx+innerR*Math.cos(s.start),y2i=cy+innerR*Math.sin(s.start);
       var lg=s.sweep>Math.PI?1:0;
-      return '<path id="ps'+s.idx+'" d="M'+x1o.toFixed(2)+','+y1o.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2o.toFixed(2)+','+y2o.toFixed(2)+' L'+x1i.toFixed(2)+','+y1i.toFixed(2)+' A'+innerR.toFixed(1)+','+innerR.toFixed(1)+' 0 '+lg+',0 '+x2i.toFixed(2)+','+y2i.toFixed(2)+' Z" fill="'+s.color+'" style="cursor:pointer;transition:transform 0.15s ease;"/>';
+      return '<path id="ps'+s.idx+'" d="M'+x1o.toFixed(2)+','+y1o.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2o.toFixed(2)+','+y2o.toFixed(2)+' L'+x1i.toFixed(2)+','+y1i.toFixed(2)+' A'+innerR.toFixed(1)+','+innerR.toFixed(1)+' 0 '+lg+',0 '+x2i.toFixed(2)+','+y2i.toFixed(2)+' Z" fill="'+s.color+'" class="chart-sector" style="cursor:pointer;animation-delay:'+(s.idx*80)+'ms"/>';
     }).join('');
     // center total with optional currency prefix
     var prefix=C.yPrefix||'',totalStr=fmtFull(total,prefix);
@@ -537,7 +543,7 @@ const CHART_SCRIPT = `
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     var zeroYB=iH-((0-yFloor)/ySpan)*iH;
     state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW,yFields:yFields,colors:colors};
-    var bars=s.map(function(d,i){var gx=i*slW+gPad;return yFields.map(function(yf,si){var c=colors[si%colors.length];var bx=gx+si*(barW+barGap);var val=+d[yf]||0;var valY=iH-((val-yFloor)/ySpan)*iH,by=Math.min(valY,zeroYB),bh=Math.max(1,Math.abs(zeroYB-valY));return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'"/>';}).join('');}).join('');
+    var bars=s.map(function(d,i){var gx=i*slW+gPad;return yFields.map(function(yf,si){var c=colors[si%colors.length];var bx=gx+si*(barW+barGap);var val=+d[yf]||0;var valY=iH-((val-yFloor)/ySpan)*iH,by=Math.min(valY,zeroYB),bh=Math.max(1,Math.abs(zeroYB-valY));return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'" class="chart-bar" style="animation-delay:'+((i*nS+si)*25)+'ms"/>';}).join('');}).join('');
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){var y=sy(v);if(y<-2||y>iH+2)return;if(Math.abs(y-lastY)<minG&&v!==ticks[0])return;lastY=y;yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
     var maxL=Math.max(2,Math.floor(iW/55)),stp=Math.max(1,Math.ceil(n/maxL)),xl='';
@@ -561,7 +567,7 @@ const CHART_SCRIPT = `
     var bars=s.map(function(d,i){
       var c=colors[i%colors.length],by=i*slH+bPad;
       var valX=((+d.y-xFloor)/xSpan)*iW,bx=Math.min(valX,zeroX),bw=Math.max(1,Math.abs(valX-zeroX));
-      return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bH.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'" style="cursor:pointer"/>';
+      return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bH.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'" class="chart-hbar" style="cursor:pointer;animation-delay:'+(i*40)+'ms"/>';
     }).join('');
     var maxL=Math.max(2,Math.floor(iH/20)),lsStep=Math.max(1,Math.ceil(n/maxL)),yl='';
     s.forEach(function(d,i){

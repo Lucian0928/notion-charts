@@ -1,5 +1,14 @@
 import type { ChartType } from "./types";
 
+const ANIM_CSS = `<style>
+.chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:chartBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both}
+.chart-hbar{transform-box:fill-box;transform-origin:0% 50%;animation:chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both}
+.chart-sector{transform-box:view-box;transform-origin:50% 50%;animation:chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes chartBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes chartHBarGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes chartSectorEnter{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
+</style>`;
+
 export function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr);
@@ -225,7 +234,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     const valY = iH - ((v - yFloor) / ySpan) * iH;
     const by = Math.min(valY, effectiveZeroY);
     const bh = Math.max(1, Math.abs(effectiveZeroY - valY));
-    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>`;
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}" class="chart-bar" style="animation-delay:${i * 40}ms"/>`;
   }).join("");
 
   const xGridLines = Array.from({ length: n + 1 }, (_, i) => {
@@ -262,7 +271,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     return `<text x="${cx.toFixed(1)}" y="${(iH + F2 + 14).toFixed(1)}" style="fill:var(--label)" font-size="${F2}" text-anchor="middle" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  return `
+  return ANIM_CSS + `
     <g transform="translate(${pad.left},${pad.top})">
       ${yGridLines}
       ${xGridLines}
@@ -304,11 +313,11 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
   }
 
   // Draw slices
-  let slices = sliceData.map(sd => {
+  let slices = sliceData.map((sd, i) => {
     const x1 = cx + R * Math.cos(sd.start), y1 = cy + R * Math.sin(sd.start);
     const x2 = cx + R * Math.cos(sd.end), y2 = cy + R * Math.sin(sd.end);
     const large = sd.sweep > Math.PI ? 1 : 0;
-    return `<path d="M${cx.toFixed(1)},${cy.toFixed(1)} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${sd.color}" style="stroke:var(--bg);stroke-width:1.5;"/>`;
+    return `<path d="M${cx.toFixed(1)},${cy.toFixed(1)} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${sd.color}" class="chart-sector" style="stroke:var(--bg);stroke-width:1.5;animation-delay:${i * 80}ms"/>`;
   }).join("");
 
   // Cover junction artifacts at center
@@ -349,7 +358,7 @@ function renderPieChart(rawData: { x: any; y: any }[], colors: string[]): string
     labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
-  return `<g>${slices}${labels}</g>`;
+  return ANIM_CSS + `<g>${slices}${labels}</g>`;
 }
 
 function renderMultiSeriesLineChart(
@@ -490,7 +499,7 @@ function renderMultiSeriesBarChart(
       const valY = iH - ((val - yFloor) / ySpan) * iH;
       const by = Math.min(valY, zeroYM);
       const bh = Math.max(1, Math.abs(zeroYM - valY));
-      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+      return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}" class="chart-bar" style="animation-delay:${(i * nS + si) * 25}ms"/>`;
     }).join("");
   }).join("");
 
@@ -530,7 +539,7 @@ function renderMultiSeriesBarChart(
     const x = i * slotW;
     return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
   }).join("");
-  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+  return ANIM_CSS + `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
 function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
@@ -565,7 +574,7 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
     const valX = ((Number(d.y) - xFloor) / xSpan) * iW;
     const bx = Math.min(valX, zeroX);
     const bw = Math.max(1, Math.abs(valX - zeroX));
-    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}"/>`;
+    return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${c}" fill-opacity="0.85" rx="${rx}" class="chart-hbar" style="animation-delay:${i * 40}ms"/>`;
   }).join("");
 
   const maxLabels = Math.max(2, Math.floor(iH / 20));
@@ -599,7 +608,7 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
     return `<text x="${x.toFixed(1)}" y="${(iH + 14).toFixed(1)}" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">${fmtTick(v)}</text>`;
   }).join("");
 
-  return `<g transform="translate(${lp},${tp})">${yGridLines}${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
+  return ANIM_CSS + `<g transform="translate(${lp},${tp})">${yGridLines}${xGridLines}${bars}${yLabelTexts}${xLabelTexts}</g>`;
 }
 
 function fmtCurrency(v: number, prefix: string): string {
@@ -639,13 +648,13 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
   }
 
   // Draw slices (no stroke)
-  let slices = sliceData.map(sd => {
+  let slices = sliceData.map((sd, i) => {
     const x1o = cx + R * Math.cos(sd.start), y1o = cy + R * Math.sin(sd.start);
     const x2o = cx + R * Math.cos(sd.end), y2o = cy + R * Math.sin(sd.end);
     const x1i = cx + innerR * Math.cos(sd.end), y1i = cy + innerR * Math.sin(sd.end);
     const x2i = cx + innerR * Math.cos(sd.start), y2i = cy + innerR * Math.sin(sd.start);
     const large = sd.sweep > Math.PI ? 1 : 0;
-    return `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${sd.color}"/>`;
+    return `<path d="M${x1o.toFixed(2)},${y1o.toFixed(2)} A${R},${R} 0 ${large},1 ${x2o.toFixed(2)},${y2o.toFixed(2)} L${x1i.toFixed(2)},${y1i.toFixed(2)} A${innerR},${innerR} 0 ${large},0 ${x2i.toFixed(2)},${y2i.toFixed(2)} Z" fill="${sd.color}" class="chart-sector" style="animation-delay:${i * 80}ms"/>`;
   }).join("");
 
   // Center total text — scales with inner circle radius
@@ -691,7 +700,7 @@ function renderDoughnutChart(rawData: { x: any; y: any }[], colors: string[], pr
     labels += `<text x="${col + swW + 8}" y="${(ly + fSz * 0.36).toFixed(1)}" style="fill:var(--label)" font-size="${fSz}" text-anchor="start" font-family="ui-monospace,monospace">${nm}  ${s.pct.toFixed(2).replace(/\.?0+$/, "")}%</text>`;
   });
 
-  return `<g>${slices}${labels}</g>`;
+  return ANIM_CSS + `<g>${slices}${labels}</g>`;
 }
 
 function renderRadarChart(rawData: { x: any; y: any }[], color: string): string {
