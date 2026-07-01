@@ -265,7 +265,7 @@ const CHART_SCRIPT = `
       else xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';
     });
     state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW,total:total,colors:colors};
-    return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+bars+xl+yl+'</g>';
+    return '<g transform="translate('+lp+','+tp+')"><rect x="0" y="0" width="'+iW+'" height="'+iH+'" style="fill:var(--grid)"/>'+yg+xg+bars+xl+yl+'</g>';
   }
 
   function pie(data,colors,W,H){
@@ -532,7 +532,7 @@ const CHART_SCRIPT = `
     var mbLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)mbLbls.push(i);});
     s.forEach(function(d,i){var pos=mbLbls.indexOf(i);if(pos===-1)return;var cx=(i*slW+slW/2).toFixed(1);if(rot)xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{var anc=pos===0?'start':pos===mbLbls.length-1?'end':'middle';xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
     var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><rect x="0" y="-5" width="9" height="9" rx="2" fill="'+c+'" fill-opacity="0.85"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
-    return'<g transform="translate('+lp+','+tp+')">'+yg+bars+xl+yl+legend+'</g>';
+    return'<g transform="translate('+lp+','+tp+')"><rect x="0" y="0" width="'+iW+'" height="'+iH+'" style="fill:var(--grid)"/>'+yg+bars+xl+yl+legend+'</g>';
   }
 
   var first=true;

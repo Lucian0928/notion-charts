@@ -265,6 +265,7 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
 
   return `
     <g transform="translate(${pad.left},${pad.top})">
+      <rect x="0" y="0" width="${iW}" height="${iH}" fill="var(--grid)"/>
       ${yGridLines}
       ${xGridLines}
       ${bars}
@@ -528,7 +529,7 @@ function renderMultiSeriesBarChart(
     </g>`;
   }).join("");
 
-  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+  return `<g transform="translate(${pad.left},${pad.top})"><rect x="0" y="0" width="${iW}" height="${iH}" fill="var(--grid)"/>${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
 function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
