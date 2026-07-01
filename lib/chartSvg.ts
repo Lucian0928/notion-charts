@@ -228,15 +228,10 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>`;
   }).join("");
 
-  // Vertical grid lines: left edge, bar centers, right edge
-  const xGridLines = [
-    `<line x1="0" y1="0" x2="0" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
-    ...data.map((_, i) => {
-      const cx = i * slotW + slotW / 2;
-      return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
-    }),
-    `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
-  ].join("");
+  const xGridLines = Array.from({ length: n + 1 }, (_, i) => {
+    const x = i * slotW;
+    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
 
   const yGridLines = yTicks.map((v) => {
     const y = sy(v);
@@ -531,11 +526,10 @@ function renderMultiSeriesBarChart(
     </g>`;
   }).join("");
 
-  const xGridLines = [
-    `<line x1="0" y1="0" x2="0" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
-    ...data.map((_, i) => { const cx = i * slotW + slotW / 2; return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`; }),
-    `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
-  ].join("");
+  const xGridLines = Array.from({ length: n + 1 }, (_, i) => {
+    const x = i * slotW;
+    return `<line x1="${x.toFixed(1)}" y1="0" x2="${x.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
   return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
@@ -594,15 +588,10 @@ function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], starti
     `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
   ].join("");
 
-  // Horizontal grid lines: top edge, bar centers, bottom edge
-  const yGridLines = [
-    `<line x1="0" y1="0" x2="${iW}" y2="0" style="stroke:var(--grid)" stroke-width="1"/>`,
-    ...data.map((_, i) => {
-      const cy2 = i * slotH + slotH / 2;
-      return `<line x1="0" y1="${cy2.toFixed(1)}" x2="${iW}" y2="${cy2.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
-    }),
-    `<line x1="0" y1="${iH}" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
-  ].join("");
+  const yGridLines = Array.from({ length: n + 1 }, (_, i) => {
+    const y = i * slotH;
+    return `<line x1="0" y1="${y.toFixed(1)}" x2="${iW}" y2="${y.toFixed(1)}" style="stroke:var(--grid)" stroke-width="1"/>`;
+  }).join("");
 
   const xLabelTexts = xTicks.map(v => {
     const x = ((v - xFloor) / xSpan) * iW;

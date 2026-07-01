@@ -253,10 +253,7 @@ const CHART_SCRIPT = `
       yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';
       yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';
     });
-    // Vertical grid lines: left edge, bar centers, right edge
-    var xg='<line x1="0" y1="0" x2="0" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
-    s.forEach(function(d,i){var cx=(i*slW+slW/2).toFixed(1);xg+='<line x1="'+cx+'" y1="0" x2="'+cx+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';});
-    xg+='<line x1="'+iW+'" y1="0" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    var xg='';for(var gi=0;gi<=n;gi++){var gx=(gi*slW).toFixed(1);xg+='<line x1="'+gx+'" y1="0" x2="'+gx+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';}
     var maxL=Math.max(2,Math.floor(iW/55)), stp=Math.max(1,Math.ceil(n/maxL)),xl='';
     var barLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)barLbls.push(i);});
     s.forEach(function(d,i){
@@ -546,9 +543,7 @@ const CHART_SCRIPT = `
     var maxL=Math.max(2,Math.floor(iW/55)),stp=Math.max(1,Math.ceil(n/maxL)),xl='';
     var mbLbls=[];s.forEach(function(d,i){if(i%stp===0||i===n-1)mbLbls.push(i);});
     s.forEach(function(d,i){var pos=mbLbls.indexOf(i);if(pos===-1)return;var cx=(i*slW+slW/2).toFixed(1);if(rot)xl+='<text transform="translate('+cx+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{xl+='<text x="'+cx+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="middle" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
-    var xg='<line x1="0" y1="0" x2="0" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
-    s.forEach(function(d,i){var cx=(i*slW+slW/2).toFixed(1);xg+='<line x1="'+cx+'" y1="0" x2="'+cx+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';});
-    xg+='<line x1="'+iW+'" y1="0" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    var xg='';for(var gi=0;gi<=n;gi++){var gx=(gi*slW).toFixed(1);xg+='<line x1="'+gx+'" y1="0" x2="'+gx+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';}
     var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><rect x="0" y="-5" width="9" height="9" rx="2" fill="'+c+'" fill-opacity="0.85"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+xl+yl+legend+'</g>';
   }
@@ -578,9 +573,7 @@ const CHART_SCRIPT = `
     var xg='<line x1="0" y1="0" x2="0" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
     xTicks.forEach(function(v){var x=((v-xFloor)/xSpan)*iW;if(x<-2||x>iW+2)return;xg+='<line x1="'+x.toFixed(1)+'" y1="0" x2="'+x.toFixed(1)+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';});
     xg+='<line x1="'+iW+'" y1="0" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
-    var yg='<line x1="0" y1="0" x2="'+iW+'" y2="0" style="stroke:var(--grid)" stroke-width="1"/>';
-    s.forEach(function(d,i){var cy2=(i*slH+slH/2).toFixed(1);yg+='<line x1="0" y1="'+cy2+'" x2="'+iW+'" y2="'+cy2+'" style="stroke:var(--grid)" stroke-width="1"/>';});
-    yg+='<line x1="0" y1="'+iH+'" x2="'+iW+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';
+    var yg='';for(var gi=0;gi<=n;gi++){var gy=(gi*slH).toFixed(1);yg+='<line x1="0" y1="'+gy+'" x2="'+iW+'" y2="'+gy+'" style="stroke:var(--grid)" stroke-width="1"/>';}
     var xl='';
     xTicks.forEach(function(v){var x=((v-xFloor)/xSpan)*iW;if(x<-2||x>iW+2)return;xl+='<text x="'+x.toFixed(1)+'" y="'+(iH+14)+'" style="fill:var(--label)" font-size="8" text-anchor="middle" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+yl+xl+'</g>';
