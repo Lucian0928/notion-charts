@@ -4,10 +4,23 @@ const ANIM_CSS = `<style>
 .chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:chartBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both}
 .chart-hbar{transform-box:fill-box;transform-origin:0% 50%;animation:chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both}
 .chart-sector{transform-box:view-box;transform-origin:50% 50%;animation:chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both}
+.chart-line{animation:chartLineDraw 1.2s cubic-bezier(0.4,0,0.2,1) both}
+.chart-fill{animation:chartFillFade 0.8s ease-out 0.4s both}
 @keyframes chartBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 @keyframes chartHBarGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes chartSectorEnter{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
+@keyframes chartLineDraw{to{stroke-dashoffset:0}}
+@keyframes chartFillFade{from{opacity:0}to{opacity:1}}
 </style>`;
+
+function polylineLen(pts: [number, number][]): number {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+    len += Math.sqrt(dx * dx + dy * dy);
+  }
+  return len * 1.1; // 10% buffer for smooth-curve overshoot
+}
 
 export function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
@@ -134,6 +147,7 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d.y))]);
   const linePath = smoothLinePath(pts);
   const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
+  const lineLen = Math.round(polylineLen(pts));
 
   const dots = data.length <= 200
     ? data.map((d, i) =>
@@ -176,12 +190,12 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
     return `<text x="-6" y="${(y + 3).toFixed(1)}" style="fill:var(--label)" font-size="8.5" text-anchor="end" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
 
-  return `
+  return ANIM_CSS + `
     <g transform="translate(${pad.left},${pad.top})">
       ${yGridLines}
       ${xGridLines}
-      <path d="${areaPath}" fill="${color}" fill-opacity="0.18"/>
-      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="${areaPath}" fill="${color}" fill-opacity="0.18" class="chart-fill"/>
+      <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" class="chart-line" style="stroke-dasharray:${lineLen};stroke-dashoffset:${lineLen}"/>
       ${dots}
       ${xLabelTexts}
       ${yLabelTexts}
@@ -429,13 +443,15 @@ function renderMultiSeriesLineChart(
     const pts: [number, number][] = data.map((d, i) => [sx(i), sy(Number(d[yf]) || 0)]);
     const linePath = smoothLinePath(pts);
     const areaPath = `${linePath} L${sx(data.length - 1).toFixed(1)},${zeroY.toFixed(1)} L${sx(0).toFixed(1)},${zeroY.toFixed(1)} Z`;
+    const lineLen = Math.round(polylineLen(pts));
+    const delay = si * 300;
     const dots = data.length <= 200
       ? data.map((d, i) =>
           `<circle cx="${sx(i).toFixed(1)}" cy="${sy(Number(d[yf]) || 0).toFixed(1)}" r="4" fill="var(--bg)" stroke="${c}" stroke-width="1.8"/>`
         ).join("")
       : "";
-    return `<path d="${areaPath}" fill="${c}" fill-opacity="${yFields.length > 1 ? 0.08 : 0.18}"/>
-<path d="${linePath}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>${dots}`;
+    return `<path d="${areaPath}" fill="${c}" fill-opacity="${yFields.length > 1 ? 0.08 : 0.18}" class="chart-fill" style="animation-delay:${delay + 400}ms"/>
+<path d="${linePath}" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round" class="chart-line" style="stroke-dasharray:${lineLen};stroke-dashoffset:${lineLen};animation-delay:${delay}ms"/>${dots}`;
   }).join("");
 
   const legend = yFields.map((yf, si) => {
@@ -447,7 +463,7 @@ function renderMultiSeriesLineChart(
     </g>`;
   }).join("");
 
-  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${seriesSvg}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+  return ANIM_CSS + `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${seriesSvg}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
 function renderMultiSeriesBarChart(

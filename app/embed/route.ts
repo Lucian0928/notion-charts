@@ -20,6 +20,7 @@ const CSS = `
   .chart-bar { transform-box: fill-box; transform-origin: 50% 100%; animation: chartBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-hbar { transform-box: fill-box; transform-origin: 0% 50%; animation: chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-sector { transform-box: view-box; transform-origin: 50% 50%; animation: chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both; }
+  .chart-fill { opacity: 0; }
   .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
   .lg-pill {
     display: flex; align-items: center; height: 38px; border-radius: 999px; padding: 3px;
@@ -224,7 +225,7 @@ const CHART_SCRIPT = `
     var zeroY=iH-((0-yFloor)/ySpan)*iH;
     var area=ln+' L'+sx(s.length-1).toFixed(1)+','+zeroY.toFixed(1)+' L'+sx(0).toFixed(1)+','+zeroY.toFixed(1)+' Z';
     var dots=s.length<=200?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d.y).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+color+'" stroke-width="1.8"/>';}).join(''):'';
-    return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+'<path d="'+area+'" fill="'+color+'" fill-opacity="0.18"/><path d="'+ln+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linejoin="round"/>'+dots+xl+yl+'</g>';
+    return '<g transform="translate('+lp+','+tp+')">'+ yg+xg+'<path d="'+area+'" fill="'+color+'" fill-opacity="0.18" class="chart-fill"/><path d="'+ln+'" fill="none" stroke="'+color+'" stroke-width="2.2" stroke-linejoin="round" class="chart-line"/>'+dots+xl+yl+'</g>';
   }
 
   function bar(data,colors,W,H){
@@ -520,7 +521,7 @@ const CHART_SCRIPT = `
     var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;}),xg='',xl='';
     idxs.forEach(function(i,pos){var x=sx(i).toFixed(1);xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';if(rot)xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{var anc=pos===0?'start':pos===idxs.length-1?'end':'middle';xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
     var zeroYM=iH-((0-yFloor)/ySpan)*iH;
-    var seriesSvg=yFields.map(function(yf,si){var c=colors[si%colors.length];var pts=s.map(function(d,i){return[sx(i),sy(+d[yf]||0)];});var ln=smooth(pts);var area=ln+' L'+sx(s.length-1).toFixed(1)+','+zeroYM.toFixed(1)+' L'+sx(0).toFixed(1)+','+zeroYM.toFixed(1)+' Z';var dots=s.length<=200?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d[yf]||0).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+c+'" stroke-width="1.8"/>';}).join(''):'';return'<path d="'+area+'" fill="'+c+'" fill-opacity="0.08"/><path d="'+ln+'" fill="none" stroke="'+c+'" stroke-width="2.2" stroke-linejoin="round"/>'+dots;}).join('');
+    var seriesSvg=yFields.map(function(yf,si){var c=colors[si%colors.length];var pts=s.map(function(d,i){return[sx(i),sy(+d[yf]||0)];});var ln=smooth(pts);var area=ln+' L'+sx(s.length-1).toFixed(1)+','+zeroYM.toFixed(1)+' L'+sx(0).toFixed(1)+','+zeroYM.toFixed(1)+' Z';var dots=s.length<=200?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d[yf]||0).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+c+'" stroke-width="1.8"/>';}).join(''):'';return'<path d="'+area+'" fill="'+c+'" fill-opacity="0.08" class="chart-fill" data-si="'+si+'"/><path d="'+ln+'" fill="none" stroke="'+c+'" stroke-width="2.2" stroke-linejoin="round" class="chart-line" data-si="'+si+'"/>'+dots;}).join('');
     var legend=yFields.map(function(yf,si){var c=colors[si%colors.length];var label=yf.length>14?yf.slice(0,13)+'…':yf;return'<g transform="translate('+(si*(iW/yFields.length))+',-10)"><circle cx="6" cy="0" r="3.5" fill="'+c+'"/><text x="13" y="3.5" style="fill:var(--label)" font-size="8" font-family="ui-monospace,monospace">'+label+'</text></g>';}).join('');
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+seriesSvg+xl+yl+legend+'</g>';
   }
@@ -603,6 +604,18 @@ const CHART_SCRIPT = `
     if(!first) svg.style.animation='none';
     svg.setAttribute('viewBox','0 0 '+W+' '+H);
     svg.innerHTML=html;
+    // Animate line paths using exact getTotalLength()
+    svg.querySelectorAll('.chart-line').forEach(function(p){
+      var si=+(p.getAttribute('data-si')||0);
+      var len=p.getTotalLength();
+      p.style.strokeDasharray=len;
+      p.style.strokeDashoffset=len;
+      p.animate([{strokeDashoffset:len},{strokeDashoffset:0}],{duration:1200,delay:si*300,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+    });
+    svg.querySelectorAll('.chart-fill').forEach(function(p){
+      var si=+(p.getAttribute('data-si')||0);
+      p.animate([{opacity:0},{opacity:1}],{duration:800,delay:si*300+400,easing:'ease-out',fill:'forwards'});
+    });
     first=false;
   }
 
