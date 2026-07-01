@@ -228,11 +228,15 @@ function renderBarChart(rawData: { x: any; y: any }[], colors: string[], startin
     return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${c}" rx="${rx}"/>`;
   }).join("");
 
-  // Vertical grid lines at bar centers (one per bar column)
-  const xGridLines = data.map((_, i) => {
-    const cx = i * slotW + slotW / 2;
-    return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
-  }).join("");
+  // Vertical grid lines: left edge, bar centers, right edge
+  const xGridLines = [
+    `<line x1="0" y1="0" x2="0" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+    ...data.map((_, i) => {
+      const cx = i * slotW + slotW / 2;
+      return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`;
+    }),
+    `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+  ].join("");
 
   const yGridLines = yTicks.map((v) => {
     const y = sy(v);
@@ -528,7 +532,12 @@ function renderMultiSeriesBarChart(
     </g>`;
   }).join("");
 
-  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
+  const xGridLines = [
+    `<line x1="0" y1="0" x2="0" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+    ...data.map((_, i) => { const cx = i * slotW + slotW / 2; return `<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`; }),
+    `<line x1="${iW}" y1="0" x2="${iW}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`,
+  ].join("");
+  return `<g transform="translate(${pad.left},${pad.top})">${yGridLines}${xGridLines}${bars}${xLabelTexts}${yLabelTexts}${legend}</g>`;
 }
 
 function renderHBarChart(rawData: { x: any; y: any }[], colors: string[], startingPoint?: number | "auto"): string {
