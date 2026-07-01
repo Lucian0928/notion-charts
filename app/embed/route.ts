@@ -294,7 +294,6 @@ const CHART_SCRIPT = `
       var lg=s.sweep>Math.PI?1:0;
       return '<path id="ps'+s.idx+'" d="M'+cx.toFixed(1)+','+cy.toFixed(1)+' L'+x1.toFixed(2)+','+y1.toFixed(2)+' A'+R.toFixed(1)+','+R.toFixed(1)+' 0 '+lg+',1 '+x2.toFixed(2)+','+y2.toFixed(2)+' Z" fill="'+s.color+'" class="chart-sector" style="cursor:pointer;animation-delay:'+(s.idx*80)+'ms"/>';
     }).join('');
-    var center='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="2" fill="var(--bg)" style="pointer-events:none;"/>';
     // legend-swatch labels in left/right columns (no connector lines)
     var leftG=slices.filter(function(s){return Math.cos(s.mid)<0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
     var rightG=slices.filter(function(s){return Math.cos(s.mid)>=0;}).sort(function(a,b){return Math.sin(a.mid)-Math.sin(b.mid);});
@@ -320,7 +319,7 @@ const CHART_SCRIPT = `
       lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</text>';
     });
     // labels rendered first (below), slices on top to receive pointer events
-    return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+center+'</g>';
+    return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+'</g>';
   }
 
   function doughnut(data,colors,W,H){
