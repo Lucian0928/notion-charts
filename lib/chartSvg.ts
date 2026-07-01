@@ -519,8 +519,7 @@ function renderMultiSeriesBarChart(
     const cx = i * slotW + slotW / 2;
     if (rotateX)
       return `<text transform="translate(${cx.toFixed(1)},${iH + xF}) rotate(-45)" style="fill:var(--label)" font-size="${xF}" text-anchor="end" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
-    const anchor = pos === 0 ? "start" : pos === renderedMBarIndices.length - 1 ? "end" : "middle";
-    return `<text x="${cx.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="${anchor}" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
+    return `<text x="${cx.toFixed(1)}" y="${(iH + F + 4).toFixed(1)}" style="fill:var(--label)" font-size="${F}" text-anchor="middle" font-family="ui-monospace,monospace">${xLabels[i]}</text>`;
   }).join("");
 
   const legend = yFields.map((yf, si) => {
