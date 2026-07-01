@@ -586,6 +586,32 @@ const CHART_SCRIPT = `
     return'<g transform="translate('+lp+','+tp+')">'+yg+xg+bars+yl+xl+'</g>';
   }
 
+  function radar(data,color,W,H){
+    var agg={};
+    data.forEach(function(d){var k=String(d.x);agg[k]=(agg[k]||0)+(+d.y||0);});
+    var entries=Object.entries(agg).slice(0,8),n=entries.length;
+    if(n<3) return '<text style="fill:var(--label)" x="'+(W/2)+'" y="'+(H/2)+'" text-anchor="middle" font-size="13">Radar needs ≥ 3 categories</text>';
+    var cx=W/2,cy=H/2,R=Math.max(40,Math.min(cx,cy)-80);
+    var maxVal=Math.max.apply(null,entries.map(function(e){return e[1]||0;}))||1;
+    var levels=4,gridPolys='';
+    for(var l=0;l<levels;l++){
+      var rr=R*(l+1)/levels;
+      var gpts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;return(cx+rr*Math.cos(a)).toFixed(1)+','+(cy+rr*Math.sin(a)).toFixed(1);}).join(' ');
+      gridPolys+='<polygon points="'+gpts+'" fill="none" style="stroke:var(--grid)" stroke-width="1"/>';
+    }
+    var axes=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;return'<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+R*Math.cos(a)).toFixed(1)+'" y2="'+(cy+R*Math.sin(a)).toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';}).join('');
+    var lblR=R+22;
+    var axisLbls=entries.map(function(e,i){
+      var a=i*2*Math.PI/n-Math.PI/2;
+      var nm=e[0].length>12?e[0].slice(0,11)+'…':e[0];
+      var anc=Math.cos(a)>0.1?'start':Math.cos(a)<-0.1?'end':'middle';
+      return'<text x="'+(cx+lblR*Math.cos(a)).toFixed(1)+'" y="'+(cy+lblR*Math.sin(a)+4).toFixed(1)+'" style="fill:var(--label)" font-size="11" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+nm+'</text>';
+    }).join('');
+    var dataPts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return(cx+r*Math.cos(a)).toFixed(1)+','+(cy+r*Math.sin(a)).toFixed(1);}).join(' ');
+    var dots=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return'<circle cx="'+(cx+r*Math.cos(a)).toFixed(1)+'" cy="'+(cy+r*Math.sin(a)).toFixed(1)+'" r="4" fill="'+color+'" fill-opacity="0.8"/>';}).join('');
+    return'<g>'+gridPolys+axes+'<polygon points="'+dataPts+'" fill="'+color+'" fill-opacity="0.2" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+dots+axisLbls+'</g>';
+  }
+
   var first=true;
   function render(){
     var d=dims(), W=d[0], H=d[1];
@@ -599,6 +625,7 @@ const CHART_SCRIPT = `
       :C.chartType==='pie'?pie(D,colors,W,H)
       :C.chartType==='doughnut'?doughnut(D,colors,W,H)
       :C.chartType==='kpi'?kpi(D,colors[0],W,H)
+      :C.chartType==='radar'?radar(D,colors[0],W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     pieActive=null;
     if(!first) svg.style.animation='none';
