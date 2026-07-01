@@ -406,9 +406,15 @@ const CHART_SCRIPT = `
       var idx=Math.floor((vx-state.lp)/state.slW);
       if(idx<0||idx>=state.s.length){tip.style.opacity='0';return;}
       var d=state.s[idx];
-      var bc=state.colors[idx%state.colors.length];
-      var bpct=state.total>0?(+d.y/state.total*100):0;
-      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
+      if(state.yFields){
+        var th='<b style="color:#e2e8f0">'+lbl(String(d.x))+'</b>';
+        state.yFields.forEach(function(yf,si){var c=state.colors[si%state.colors.length];th+='<span style="margin-left:10px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+c+';margin-right:4px;vertical-align:middle"></span><span style="color:#9ca3af">'+yf+'</span> <span style="color:#6b7280">'+fmtFull(+d[yf]||0,C.yPrefix||'')+'</span></span>';});
+        tip.innerHTML=th;
+      } else {
+        var bc=state.colors[idx%state.colors.length];
+        var bpct=state.total>0?(+d.y/state.total*100):0;
+        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
+      }
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='pie'){
       var dx=vx-state.cx,dy=vy-state.cy,dist=Math.sqrt(dx*dx+dy*dy);
@@ -525,7 +531,7 @@ const CHART_SCRIPT = `
     var slW=iW/n,gPad=Math.min(slW*0.1,4),gW=slW-gPad*2,barGap=2,barW=Math.max(1,(gW-barGap*(nS-1))/nS),rx=Math.min(3,barW*0.25);
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     var zeroYB=iH-((0-yFloor)/ySpan)*iH;
-    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW};
+    state={type:'bar',s:s,lp:lp,tp:tp,iW:iW,iH:iH,slW:slW,yFields:yFields,colors:colors};
     var bars=s.map(function(d,i){var gx=i*slW+gPad;return yFields.map(function(yf,si){var c=colors[si%colors.length];var bx=gx+si*(barW+barGap);var val=+d[yf]||0;var valY=iH-((val-yFloor)/ySpan)*iH,by=Math.min(valY,zeroYB),bh=Math.max(1,Math.abs(zeroYB-valY));return'<rect x="'+bx.toFixed(1)+'" y="'+by.toFixed(1)+'" width="'+barW.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="'+c+'" fill-opacity="0.85" rx="'+rx+'"/>';}).join('');}).join('');
     var minG=F+4,lastY=9999,yg='',yl='';
     ticks.forEach(function(v){var y=sy(v);if(y<-2||y>iH+2)return;if(Math.abs(y-lastY)<minG&&v!==ticks[0])return;lastY=y;yg+='<line x1="0" y1="'+y.toFixed(1)+'" x2="'+iW+'" y2="'+y.toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';yl+='<text x="-6" y="'+(y+F*0.35).toFixed(1)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="end" font-family="ui-monospace,monospace">'+fmt(v)+'</text>';});
