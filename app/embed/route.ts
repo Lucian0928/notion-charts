@@ -451,6 +451,13 @@ const CHART_SCRIPT = `
         tip.style.opacity='0';
         if(pieActive){pieActive.el.style.transform='';pieActive=null;}
       }
+    } else if(state.type==='radar'){
+      var closest=null,minDist=36;
+      state.dots.forEach(function(dot){var ddx=vx-dot.x,ddy=vy-dot.y,dd=Math.sqrt(ddx*ddx+ddy*ddy);if(dd<minDist){minDist=dd;closest=dot;}});
+      if(closest){
+        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+state.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+closest.name+'</b><span style="color:#6b7280;margin-left:8px">'+fmtFull(closest.value,C.yPrefix||'')+'</span>';
+        tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
+      } else { tip.style.opacity='0'; }
     }
   });
   svg.addEventListener('mouseleave',function(){
@@ -458,11 +465,19 @@ const CHART_SCRIPT = `
     if(pieActive){pieActive.el.style.transform='';pieActive=null;}
   });
   svg.addEventListener('touchmove',function(e){
-    if(!state||state.type!=='pie'||!e.touches.length) return;
+    if(!state||!e.touches.length) return;
+    if(state.type!=='pie'&&state.type!=='radar') return;
     e.preventDefault();
     var t=e.touches[0],r2=svg.getBoundingClientRect();
     var vx2=t.clientX-r2.left,vy2=t.clientY-r2.top;
     var tx2=Math.min(t.clientX+14,window.innerWidth-220),ty2=Math.max(t.clientY-50,8);
+    if(state.type==='radar'){
+      var rc=null,rmd=44;
+      state.dots.forEach(function(dot){var ddx=vx2-dot.x,ddy=vy2-dot.y,dd=Math.sqrt(ddx*ddx+ddy*ddy);if(dd<rmd){rmd=dd;rc=dot;}});
+      if(rc){tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+state.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+rc.name+'</b><span style="color:#6b7280;margin-left:8px">'+fmtFull(rc.value,C.yPrefix||'')+'</span>';tip.style.left=tx2+'px';tip.style.top=ty2+'px';tip.style.opacity='1';}
+      else{tip.style.opacity='0';}
+      return;
+    }
     var dx2=vx2-state.cx,dy2=vy2-state.cy,dist2=Math.sqrt(dx2*dx2+dy2*dy2);
     if(dist2>state.R||(state.innerR>0&&dist2<state.innerR)){
       tip.style.opacity='0';
@@ -601,14 +616,16 @@ const CHART_SCRIPT = `
     }
     var axes=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;return'<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+R*Math.cos(a)).toFixed(1)+'" y2="'+(cy+R*Math.sin(a)).toFixed(1)+'" style="stroke:var(--grid)" stroke-width="1"/>';}).join('');
     var lblR=R+22;
+    var dotPts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return{name:e[0],value:e[1],x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};});
+    state={type:'radar',dots:dotPts,color:color};
     var axisLbls=entries.map(function(e,i){
       var a=i*2*Math.PI/n-Math.PI/2;
-      var nm=e[0].length>12?e[0].slice(0,11)+'…':e[0];
+      var nm=e[0].length>20?e[0].slice(0,19)+'…':e[0];
       var anc=Math.cos(a)>0.1?'start':Math.cos(a)<-0.1?'end':'middle';
       return'<text x="'+(cx+lblR*Math.cos(a)).toFixed(1)+'" y="'+(cy+lblR*Math.sin(a)+4).toFixed(1)+'" style="fill:var(--label)" font-size="11" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+nm+'</text>';
     }).join('');
-    var dataPts=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return(cx+r*Math.cos(a)).toFixed(1)+','+(cy+r*Math.sin(a)).toFixed(1);}).join(' ');
-    var dots=entries.map(function(e,i){var a=i*2*Math.PI/n-Math.PI/2;var r=R*e[1]/maxVal;return'<circle cx="'+(cx+r*Math.cos(a)).toFixed(1)+'" cy="'+(cy+r*Math.sin(a)).toFixed(1)+'" r="4" fill="'+color+'" fill-opacity="0.8"/>';}).join('');
+    var dataPts=dotPts.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
+    var dots=dotPts.map(function(p){return'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="5" fill="'+color+'" fill-opacity="0.85" style="cursor:pointer"/>';}).join('');
     return'<g>'+gridPolys+axes+'<polygon points="'+dataPts+'" fill="'+color+'" fill-opacity="0.2" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+dots+axisLbls+'</g>';
   }
 

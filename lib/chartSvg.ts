@@ -754,7 +754,7 @@ function renderRadarChart(rawData: { x: any; y: any }[], color: string): string 
     const a = (i * 2 * Math.PI / n) - Math.PI / 2;
     const lx = cx + (R + 22) * Math.cos(a);
     const ly = cy + (R + 22) * Math.sin(a);
-    const label = name.length > 12 ? name.slice(0, 11) + "…" : name;
+    const label = name.length > 20 ? name.slice(0, 19) + "…" : name;
     const anchor = Math.cos(a) > 0.1 ? "start" : Math.cos(a) < -0.1 ? "end" : "middle";
     return `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" style="fill:var(--label)" font-size="11" text-anchor="${anchor}" font-family="ui-monospace,monospace">${label}</text>`;
   }).join("");
