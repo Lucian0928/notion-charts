@@ -38,13 +38,6 @@ const MRadarIcon = () => (
     <line x1="4" y1="16.5" x2="12" y2="12"/><line x1="4" y1="7.5" x2="12" y2="12"/>
   </svg>
 );
-const MKPIIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="20" height="20" rx="4"/>
-    <text x="12" y="17" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui,sans-serif">9</text>
-  </svg>
-);
-
 const CHART_TYPES = [
   { id: "bar",      label: "Bar Chart",      Icon: MBarIcon      },
   { id: "line",     label: "Line Chart",     Icon: MLineIcon     },
@@ -52,7 +45,6 @@ const CHART_TYPES = [
   { id: "hbar",     label: "Horizontal bar", Icon: MHBarIcon     },
   { id: "doughnut", label: "Doughnut",       Icon: MDoughnutIcon },
   { id: "radar",    label: "Radar Chart",    Icon: MRadarIcon    },
-  { id: "kpi",      label: "KPI",            Icon: MKPIIcon      },
 ];
 
 // ── Step indicator ────────────────────────────────────────────────────────────

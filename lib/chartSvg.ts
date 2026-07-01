@@ -858,20 +858,6 @@ function renderMultiSeriesRadarChart(
   return ANIM_CSS + `<g>${gridPolygons}${axes}${seriesSvg}${axisLabels}${legend}</g>`;
 }
 
-function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = ""): string {
-  if (rawData.length === 0)
-    return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
-
-  const total = rawData.reduce((s, d) => s + (Number(d.y) || 0), 0);
-  const fmtVal = fmtCurrency(total, prefix);
-  const count = rawData.length;
-  const W = 800, H = 320;
-  const base = fmtVal.length > 14 ? 52 : fmtVal.length > 10 ? 64 : 80;
-  const fontSize = Math.round(Math.min(base, W * 0.18, H * 0.4));
-  const recF = Math.max(10, Math.round(fontSize * 0.2));
-
-  return `<text x="${W / 2}" y="${(H / 2 - fontSize * 0.25).toFixed(1)}" text-anchor="middle" style="fill:${color}" font-size="${fontSize}" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">${fmtVal}</text><text x="${W / 2}" y="${(H / 2 + fontSize * 0.65).toFixed(1)}" text-anchor="middle" style="fill:var(--label)" font-size="${recF}" font-family="ui-monospace,monospace">${count} records</text>`;
-}
 
 export function getViewBox(chartType: ChartType): string {
   if (chartType === "radar") return "0 0 620 500";
@@ -896,7 +882,6 @@ export function renderSvgChart(
     const multi = rawData as Record<string, any>[];
     if (chartType === "bar" || chartType === "hbar") return renderMultiSeriesBarChart(multi, yFields, resolvedColors, startingPoint);
     if (chartType === "pie" || chartType === "doughnut") return renderPieChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), resolvedColors);
-    if (chartType === "kpi") return renderKPIChart(multi.map(d => ({ x: d.x, y: d[yFields[0]] })), color, prefix);
     if (chartType === "radar") return renderMultiSeriesRadarChart(multi, yFields, resolvedColors);
     return renderMultiSeriesLineChart(multi, yFields, resolvedColors, startingPoint);
   }
@@ -908,6 +893,5 @@ export function renderSvgChart(
   if (chartType === "pie") return renderPieChart(single, resolvedColors);
   if (chartType === "doughnut") return renderDoughnutChart(single, resolvedColors, prefix);
   if (chartType === "radar") return renderRadarChart(single, resolvedColors[0]);
-  if (chartType === "kpi") return renderKPIChart(single, color, prefix);
   return renderLineChart(single, resolvedColors[0], startingPoint);
 }

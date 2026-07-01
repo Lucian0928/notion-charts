@@ -379,17 +379,7 @@ const CHART_SCRIPT = `
     return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+ctr+'</g>';
   }
 
-  function kpi(data,color,W,H){
-    var total=data.reduce(function(s,d){return s+(+d.y||0);},0);
-    var prefix=C.yPrefix||'',valStr=fmtFull(total,prefix);
-    var cnt=data.length;
-    var base=valStr.length>14?52:valStr.length>10?64:80;
-    var fs=Math.round(Math.min(base,W*0.18,H*0.4));
-    var recF=Math.max(10,Math.round(fs*0.2));
-    return '<text x="'+(W/2)+'" y="'+(H/2-fs*0.25).toFixed(1)+'" text-anchor="middle" style="fill:'+color+'" font-size="'+fs+'" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+valStr+'</text><text x="'+(W/2)+'" y="'+(H/2+fs*0.65).toFixed(1)+'" text-anchor="middle" style="fill:var(--label)" font-size="'+recF+'" font-family="ui-monospace,monospace">'+cnt+' records</text>';
-  }
-
-  // Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
+// Tooltip handlers — line/bar snap by X axis (no distance check), pie by sector
   svg.addEventListener('mousemove',function(e){
     if(!state){tip.style.opacity='0';return;}
     var r=svg.getBoundingClientRect();
@@ -702,7 +692,6 @@ const CHART_SCRIPT = `
       :C.chartType==='hbar'?hbar(D,colors,W,H)
       :C.chartType==='pie'?pie(D,colors,W,H)
       :C.chartType==='doughnut'?doughnut(D,colors,W,H)
-      :C.chartType==='kpi'?kpi(D,colors[0],W,H)
       :C.chartType==='radar'?radar(D,yFs,colors,W,H)
       :(yFs?lineMulti(D,yFs,colors,W,H):line(D,colors[0],W,H));
     pieActive=null;
@@ -772,7 +761,7 @@ export async function GET(req: NextRequest) {
   let yFields: string[] = [];
   let yAggregations: string[] = [];
   let color      = searchParams.get("color")      || "#6366f1";
-  let chartType: "line" | "bar" | "pie" | "doughnut" | "kpi" = "line";
+  let chartType: "line" | "bar" | "pie" | "doughnut" = "line";
   let colorMode: "single" | "multi"     = "single";
   let colors: string[] = [];
   let yPrefix    = "";
