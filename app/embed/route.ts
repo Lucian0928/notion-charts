@@ -21,6 +21,8 @@ const CSS = `
   .chart-hbar { transform-box: fill-box; transform-origin: 0% 50%; animation: chartHBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-sector { transform-box: view-box; transform-origin: 50% 50%; animation: chartSectorEnter 0.4s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-fill { opacity: 0; }
+  @keyframes chartRadarEnter { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+  .chart-radar { transform-box: view-box; transform-origin: 50% 50%; animation: chartRadarEnter 0.6s cubic-bezier(0.22,1,0.36,1) both; }
   .chart-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; animation: slideUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
   .lg-pill {
     display: flex; align-items: center; height: 38px; border-radius: 999px; padding: 3px;
@@ -626,7 +628,7 @@ const CHART_SCRIPT = `
     }).join('');
     var dataPts=dotPts.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ');
     var dots=dotPts.map(function(p){return'<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="5" fill="'+color+'" fill-opacity="0.85" style="cursor:pointer"/>';}).join('');
-    return'<g>'+gridPolys+axes+'<polygon points="'+dataPts+'" fill="'+color+'" fill-opacity="0.2" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+dots+axisLbls+'</g>';
+    return'<g>'+gridPolys+axes+'<g class="chart-radar"><polygon points="'+dataPts+'" fill="'+color+'" fill-opacity="0.2" stroke="'+color+'" stroke-width="2" stroke-linejoin="round"/>'+dots+'</g>'+axisLbls+'</g>';
   }
 
   var first=true;

@@ -11,6 +11,8 @@ const ANIM_CSS = `<style>
 @keyframes chartSectorEnter{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
 @keyframes chartLineDraw{to{stroke-dashoffset:0}}
 @keyframes chartFillFade{from{opacity:0}to{opacity:1}}
+.chart-radar{transform-box:view-box;transform-origin:50% 50%;animation:chartRadarEnter 0.6s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes chartRadarEnter{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
 </style>`;
 
 function polylineLen(pts: [number, number][]): number {
@@ -771,7 +773,7 @@ function renderRadarChart(rawData: { x: any; y: any }[], color: string): string 
     return `<circle cx="${(cx + r * Math.cos(a)).toFixed(1)}" cy="${(cy + r * Math.sin(a)).toFixed(1)}" r="4" fill="${color}" fill-opacity="0.8"/>`;
   }).join("");
 
-  return `<g>${gridPolygons}${axes}<polygon points="${pts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}${axisLabels}</g>`;
+  return ANIM_CSS + `<g>${gridPolygons}${axes}<g class="chart-radar"><polygon points="${pts}" fill="${color}" fill-opacity="0.2" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}</g>${axisLabels}</g>`;
 }
 
 function renderKPIChart(rawData: { x: any; y: any }[], color: string, prefix = ""): string {
