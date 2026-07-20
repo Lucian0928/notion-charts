@@ -154,13 +154,13 @@ const CHART_SCRIPT = `
   }
   function fmt(v){
     var abs=Math.abs(v),sign=v<0?'-':'';
-    if(abs>=1000000) return sign+(abs/1000000).toFixed(2).replace(/\.?0+$/,'')+'M';
-    if(abs>=1000) return sign+(abs/1000).toFixed(2).replace(/\.?0+$/,'')+'k';
+    if(abs>=1000000) return sign+(abs/1000000).toFixed(2).replace(/\\.?0+$/,'')+'M';
+    if(abs>=1000) return sign+(abs/1000).toFixed(2).replace(/\\.?0+$/,'')+'k';
     if(Number.isInteger(v)) return String(v);
     // Pick decimals from the magnitude of v. Rounding to 2dp first collapsed
     // every tick below ~0.005 to "0", so small-valued axes lost all labels.
     var dec=abs>=1?2:Math.min(10,2-Math.floor(Math.log10(abs)));
-    var s=abs.toFixed(dec).replace(/\.?0+$/,'');
+    var s=abs.toFixed(dec).replace(/\\.?0+$/,'');
     return s==='0'?'0':sign+s;
   }
   function fmtFull(v,prefix){ var abs=Math.abs(v),neg=v<0,r=Math.round(abs*100)/100,ip=Math.floor(r),s='',t=String(ip); for(var i=0;i<t.length;i++){if(i>0&&(t.length-i)%3===0)s+=',';s+=t[i];} var dec=r.toFixed(2).split('.')[1].replace(/0+$/,''); if(dec)s+='.'+dec; return(neg?'-':'')+(prefix||'')+s; }
@@ -419,7 +419,7 @@ const CHART_SCRIPT = `
       } else {
         var bc=state.colors[idx%state.colors.length];
         var bpct=state.total>0?(+d.y/state.total*100):0;
-        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
+        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
       }
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='hbar'){
@@ -498,7 +498,7 @@ const CHART_SCRIPT = `
         var elb=svg.querySelector('#ps'+fb.idx);
         if(elb){elb.style.setProperty('transform','translate('+(16*Math.cos(fb.mid)).toFixed(1)+'px,'+(16*Math.sin(fb.mid)).toFixed(1)+'px)','important');pieActive={idx:fb.idx,el:elb};}
       }
-      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+fb.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+fb.name+'</b><span style="color:#9ca3af;margin-left:10px">'+fb.pct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(fb.value)+'</span>';
+      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+fb.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+fb.name+'</b><span style="color:#9ca3af;margin-left:10px">'+fb.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(fb.value)+'</span>';
       tip.style.left=txb+'px';tip.style.top=tyb+'px';tip.style.opacity='1';
     } else {
       tip.style.opacity='0';
