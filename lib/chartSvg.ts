@@ -104,8 +104,11 @@ function fmtTick(v: number): string {
   if (abs >= 1000000) return sign + (abs / 1000000).toFixed(2).replace(/\.?0+$/, "") + "M";
   if (abs >= 1000) return sign + (abs / 1000).toFixed(2).replace(/\.?0+$/, "") + "k";
   if (Number.isInteger(v)) return String(v);
-  const r = Math.round(v * 100) / 100;
-  return r % 1 === 0 ? String(r) : r.toFixed(Math.abs(r) < 0.01 ? 3 : 2).replace(/\.?0+$/, "");
+  // Pick decimals from the magnitude of v. Rounding to 2dp first collapsed
+  // every tick below ~0.005 to "0", so small-valued axes lost all labels.
+  const dec = abs >= 1 ? 2 : Math.min(10, 2 - Math.floor(Math.log10(abs)));
+  const s = abs.toFixed(dec).replace(/\.?0+$/, "");
+  return s === "0" ? "0" : sign + s;
 }
 
 function renderLineChart(rawData: { x: any; y: any }[], color: string, startingPoint?: number | "auto"): string {

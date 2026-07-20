@@ -157,8 +157,11 @@ const CHART_SCRIPT = `
     if(abs>=1000000) return sign+(abs/1000000).toFixed(2).replace(/\.?0+$/,'')+'M';
     if(abs>=1000) return sign+(abs/1000).toFixed(2).replace(/\.?0+$/,'')+'k';
     if(Number.isInteger(v)) return String(v);
-    var r=Math.round(v*100)/100;
-    return r%1===0?String(r):r.toFixed(Math.abs(r)<0.01?3:2).replace(/\.?0+$/,'');
+    // Pick decimals from the magnitude of v. Rounding to 2dp first collapsed
+    // every tick below ~0.005 to "0", so small-valued axes lost all labels.
+    var dec=abs>=1?2:Math.min(10,2-Math.floor(Math.log10(abs)));
+    var s=abs.toFixed(dec).replace(/\.?0+$/,'');
+    return s==='0'?'0':sign+s;
   }
   function fmtFull(v,prefix){ var abs=Math.abs(v),neg=v<0,r=Math.round(abs*100)/100,ip=Math.floor(r),s='',t=String(ip); for(var i=0;i<t.length;i++){if(i>0&&(t.length-i)%3===0)s+=',';s+=t[i];} var dec=r.toFixed(2).split('.')[1].replace(/0+$/,''); if(dec)s+='.'+dec; return(neg?'-':'')+(prefix||'')+s; }
   function lbl(s){ var d=new Date(s); if(isNaN(d.getTime())) return s; var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return mo[d.getMonth()]+' '+String(d.getDate()).padStart(2,'0')+','+String(d.getFullYear()).slice(2); }
