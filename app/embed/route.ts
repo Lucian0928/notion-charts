@@ -115,7 +115,14 @@ const TOGGLE_SCRIPT = `
 })();
 `;
 
-const CHART_SCRIPT = `
+// String.raw is required, not stylistic. This is browser JS living in a template
+// literal, so a plain literal eats lone backslashes before the browser ever sees
+// them: /\.?0+$/ ships as /.?0+$/, where `.` matches any character. That shipped
+// once and truncated every fractional axis label ("0.2" -> "0."). Same trap for
+// \d \s \w \b. With String.raw, regexes here mean what they say — write them
+// normally and do not "defensively" double the backslashes.
+// `npm run verify:embed` checks this.
+const CHART_SCRIPT = String.raw`
 (function(){
   var D=window.__nc_d, C=window.__nc_c;
   if(!D||!C) return;
@@ -154,13 +161,13 @@ const CHART_SCRIPT = `
   }
   function fmt(v){
     var abs=Math.abs(v),sign=v<0?'-':'';
-    if(abs>=1000000) return sign+(abs/1000000).toFixed(2).replace(/\\.?0+$/,'')+'M';
-    if(abs>=1000) return sign+(abs/1000).toFixed(2).replace(/\\.?0+$/,'')+'k';
+    if(abs>=1000000) return sign+(abs/1000000).toFixed(2).replace(/\.?0+$/,'')+'M';
+    if(abs>=1000) return sign+(abs/1000).toFixed(2).replace(/\.?0+$/,'')+'k';
     if(Number.isInteger(v)) return String(v);
     // Pick decimals from the magnitude of v. Rounding to 2dp first collapsed
     // every tick below ~0.005 to "0", so small-valued axes lost all labels.
     var dec=abs>=1?2:Math.min(10,2-Math.floor(Math.log10(abs)));
-    var s=abs.toFixed(dec).replace(/\\.?0+$/,'');
+    var s=abs.toFixed(dec).replace(/\.?0+$/,'');
     return s==='0'?'0':sign+s;
   }
   function fmtFull(v,prefix){ var abs=Math.abs(v),neg=v<0,r=Math.round(abs*100)/100,ip=Math.floor(r),s='',t=String(ip); for(var i=0;i<t.length;i++){if(i>0&&(t.length-i)%3===0)s+=',';s+=t[i];} var dec=r.toFixed(2).split('.')[1].replace(/0+$/,''); if(dec)s+='.'+dec; return(neg?'-':'')+(prefix||'')+s; }
@@ -322,13 +329,13 @@ const CHART_SCRIPT = `
       var s=item.s,ly=item.y,sx=LW-swW;
       lb+='<rect x="'+sx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
       var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
-      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</text>';
+      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\.?0+$/,'')+'%</text>';
     });
     rightItems.forEach(function(item){
       var s=item.s,ly=item.y,rx=W-LW;
       lb+='<rect x="'+rx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
       var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
-      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</text>';
+      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\.?0+$/,'')+'%</text>';
     });
     // labels rendered first (below), slices on top to receive pointer events
     return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+'</g>';
@@ -380,13 +387,13 @@ const CHART_SCRIPT = `
       var s=item.s,ly=item.y,sx=LW-swW;
       lb+='<rect x="'+sx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
       var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
-      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</text>';
+      lb+='<text x="'+(sx-7)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="end" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\.?0+$/,'')+'%</text>';
     });
     rightItems.forEach(function(item){
       var s=item.s,ly=item.y,rx=W-LW;
       lb+='<rect x="'+rx+'" y="'+(ly-swH/2).toFixed(1)+'" width="'+swW+'" height="'+swH+'" rx="2" fill="'+s.color+'"/>';
       var nm=s.name.length>24?s.name.slice(0,23)+'…':s.name;
-      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</text>';
+      lb+='<text x="'+(rx+swW+8)+'" y="'+(ly+fSz*0.36).toFixed(1)+'" style="fill:var(--label)" font-size="'+fSz+'" text-anchor="start" font-family="-apple-system,BlinkMacSystemFont,ui-sans-serif,sans-serif">'+nm+'  '+s.pct.toFixed(2).replace(/\.?0+$/,'')+'%</text>';
     });
     return '<g style="pointer-events:none">'+lb+'</g><g>'+slPaths+ctr+'</g>';
   }
@@ -419,7 +426,7 @@ const CHART_SCRIPT = `
       } else {
         var bc=state.colors[idx%state.colors.length];
         var bpct=state.total>0?(+d.y/state.total*100):0;
-        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
+        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+bc+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+lbl(String(d.x))+'</b><span style="color:#9ca3af;margin-left:10px">'+bpct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmtFull(+d.y,C.yPrefix||'')+'</span>';
       }
       tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
     } else if(state.type==='hbar'){
@@ -447,7 +454,7 @@ const CHART_SCRIPT = `
           var el=svg.querySelector('#ps'+found.idx);
           if(el){el.style.setProperty('transform','translate('+(16*Math.cos(found.mid)).toFixed(1)+'px,'+(16*Math.sin(found.mid)).toFixed(1)+'px)','important');pieActive={idx:found.idx,el:el};}
         }
-        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+found.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+found.name+'</b><span style="color:#9ca3af;margin-left:10px">'+found.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(found.value)+'</span>';
+        tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+found.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+found.name+'</b><span style="color:#9ca3af;margin-left:10px">'+found.pct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(found.value)+'</span>';
         tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';
       } else {
         tip.style.opacity='0';
@@ -498,7 +505,7 @@ const CHART_SCRIPT = `
         var elb=svg.querySelector('#ps'+fb.idx);
         if(elb){elb.style.setProperty('transform','translate('+(16*Math.cos(fb.mid)).toFixed(1)+'px,'+(16*Math.sin(fb.mid)).toFixed(1)+'px)','important');pieActive={idx:fb.idx,el:elb};}
       }
-      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+fb.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+fb.name+'</b><span style="color:#9ca3af;margin-left:10px">'+fb.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(fb.value)+'</span>';
+      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+fb.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+fb.name+'</b><span style="color:#9ca3af;margin-left:10px">'+fb.pct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(fb.value)+'</span>';
       tip.style.left=txb+'px';tip.style.top=tyb+'px';tip.style.opacity='1';
     } else {
       tip.style.opacity='0';
@@ -543,7 +550,7 @@ const CHART_SCRIPT = `
         var el2=svg.querySelector('#ps'+f2.idx);
         if(el2){el2.style.setProperty('transform','translate('+(16*Math.cos(f2.mid)).toFixed(1)+'px,'+(16*Math.sin(f2.mid)).toFixed(1)+'px)','important');pieActive={idx:f2.idx,el:el2};}
       }
-      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+f2.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+f2.name+'</b><span style="color:#9ca3af;margin-left:10px">'+f2.pct.toFixed(2).replace(/\\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(f2.value)+'</span>';
+      tip.innerHTML='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+f2.color+';margin-right:5px;vertical-align:middle"></span><b style="color:#e2e8f0">'+f2.name+'</b><span style="color:#9ca3af;margin-left:10px">'+f2.pct.toFixed(2).replace(/\.?0+$/,'')+'%</span><span style="color:#6b7280;margin-left:8px">'+fmt(f2.value)+'</span>';
       tip.style.left=tx2+'px';tip.style.top=ty2+'px';tip.style.opacity='1';
     } else {
       tip.style.opacity='0';
