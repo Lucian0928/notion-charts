@@ -182,7 +182,13 @@ const CHART_SCRIPT = `
   function line(data,color,W,H){
     var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
     if(!s.length) return noData(W,H);
-    var lp=56,rp=12,tp=14;
+    var rp=12,tp=14;
+    var ys=s.map(function(d){return +d.y;}), maxY=Math.max.apply(null,ys)||1;
+    var yFloor=resolveMin(ys),ticks=smartTicksFrom(yFloor,maxY),yR=ticks[ticks.length-1]||1,ySpan=yR-yFloor||1;
+    // Left padding must fit the widest tick label; a fixed lp clips labels like "-260k"
+    // against the SVG edge, since they are drawn right-anchored at x=-6.
+    var mtl=Math.max.apply(null,ticks.map(function(v){return fmt(v).length;}));
+    var lp=Math.max(56,Math.ceil(mtl*F*0.6)+12);
     var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var eff0=Math.min(Math.max(6,Math.round((W-lp-rp)/38)),Math.max(s.length,1));
@@ -194,8 +200,6 @@ const CHART_SCRIPT = `
     var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
     var iW=W-lp-rp, iH=H-tp-bp;
     if(iW<20||iH<20) return '';
-    var ys=s.map(function(d){return +d.y;}), maxY=Math.max.apply(null,ys)||1;
-    var yFloor=resolveMin(ys),ticks=smartTicksFrom(yFloor,maxY),yR=ticks[ticks.length-1]||1,ySpan=yR-yFloor||1;
     var sx=function(i){return s.length>1?i/(s.length-1)*iW:iW/2;};
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     state={type:'line',s:s,lp:lp,tp:tp,iW:iW,iH:iH,yR:yR};
@@ -213,6 +217,10 @@ const CHART_SCRIPT = `
     for(var k=0;k<eff;k++) idx[Math.min(k*stp,s.length-1)]=1;
     idx[s.length-1]=1;
     var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;});
+    // stp is floored, so the forced final index can land a few px from the last
+    // stepped one and print on top of it — drop whatever it collides with.
+    var minGapX=rot?mll*xF*0.6*0.707+6:mll*F*0.6+8;
+    while(idxs.length>1&&sx(idxs[idxs.length-1])-sx(idxs[idxs.length-2])<minGapX) idxs.splice(idxs.length-2,1);
     var xg='',xl='';
     idxs.forEach(function(i,pos){
       var x=sx(i).toFixed(1);
@@ -552,7 +560,13 @@ const CHART_SCRIPT = `
   function lineMulti(data,yFields,colors,W,H){
     var s=data.slice().sort(function(a,b){return String(a.x)<String(b.x)?-1:String(a.x)>String(b.x)?1:0;});
     if(!s.length) return noData(W,H);
-    var lp=56,rp=12,tp=22,F=11;
+    var rp=12,tp=22,F=11;
+    var allY=[];s.forEach(function(d){yFields.forEach(function(yf){allY.push(+d[yf]||0);});});
+    var maxY=Math.max.apply(null,allY)||1;
+    var yFloor=resolveMin(allY),ticks=smartTicksFrom(yFloor,maxY),yR=ticks[ticks.length-1]||1,ySpan=yR-yFloor||1;
+    // Left padding must fit the widest tick label — see line().
+    var mtl=Math.max.apply(null,ticks.map(function(v){return fmt(v).length;}));
+    var lp=Math.max(56,Math.ceil(mtl*F*0.6)+12);
     var ls=s.map(function(d){return lbl(String(d.x));});
     var mll=Math.max.apply(null,ls.map(function(l){return l.length;}));
     var eff0=Math.min(Math.max(6,Math.round((W-lp-rp)/38)),Math.max(s.length,1));
@@ -561,9 +575,6 @@ const CHART_SCRIPT = `
     var bp=rot?Math.ceil(mll*xF*0.65*0.707)+8:F+14;
     var iW=W-lp-rp,iH=H-tp-bp;
     if(iW<20||iH<20) return '';
-    var allY=[];s.forEach(function(d){yFields.forEach(function(yf){allY.push(+d[yf]||0);});});
-    var maxY=Math.max.apply(null,allY)||1;
-    var yFloor=resolveMin(allY),ticks=smartTicksFrom(yFloor,maxY),yR=ticks[ticks.length-1]||1,ySpan=yR-yFloor||1;
     var sx=function(i){return s.length>1?i/(s.length-1)*iW:iW/2;};
     var sy=function(v){return iH-((v-yFloor)/ySpan)*iH;};
     state={type:'line',s:s,lp:lp,tp:tp,iW:iW,iH:iH,yR:yR,yFields:yFields};
@@ -572,6 +583,9 @@ const CHART_SCRIPT = `
     var tgt=Math.max(2,Math.floor(iW/(F*5))),eff=Math.min(tgt,s.length),stp=Math.max(1,Math.floor((s.length-1)/Math.max(1,eff-1))),idx={};
     for(var k=0;k<eff;k++) idx[Math.min(k*stp,s.length-1)]=1; idx[s.length-1]=1;
     var idxs=Object.keys(idx).map(Number).sort(function(a,b){return a-b;}),xg='',xl='';
+    // Drop labels the forced final index would print on top of — see line().
+    var minGapX=rot?mll*xF*0.6*0.707+6:mll*F*0.6+8;
+    while(idxs.length>1&&sx(idxs[idxs.length-1])-sx(idxs[idxs.length-2])<minGapX) idxs.splice(idxs.length-2,1);
     idxs.forEach(function(i,pos){var x=sx(i).toFixed(1);xg+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+iH+'" style="stroke:var(--grid)" stroke-width="1"/>';if(rot)xl+='<text transform="translate('+x+','+(iH+xF)+') rotate(-45)" style="fill:var(--label)" font-size="'+xF+'" text-anchor="end" font-family="ui-monospace,monospace">'+ls[i]+'</text>';else{var anc=pos===0?'start':pos===idxs.length-1?'end':'middle';xl+='<text x="'+x+'" y="'+(iH+F+4)+'" style="fill:var(--label)" font-size="'+F+'" text-anchor="'+anc+'" font-family="ui-monospace,monospace">'+ls[i]+'</text>';}});
     var zeroYM=iH-((0-yFloor)/ySpan)*iH;
     var seriesSvg=yFields.map(function(yf,si){var c=colors[si%colors.length];var pts=s.map(function(d,i){return[sx(i),sy(+d[yf]||0)];});var ln=smooth(pts);var area=ln+' L'+sx(s.length-1).toFixed(1)+','+zeroYM.toFixed(1)+' L'+sx(0).toFixed(1)+','+zeroYM.toFixed(1)+' Z';var dots=s.length<=200?s.map(function(d,i){return'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(+d[yf]||0).toFixed(1)+'" r="4" fill="var(--bg)" stroke="'+c+'" stroke-width="1.8"/>';}).join(''):'';return'<path d="'+area+'" fill="'+c+'" fill-opacity="0.08" class="chart-fill" data-si="'+si+'"/><path d="'+ln+'" fill="none" stroke="'+c+'" stroke-width="2.2" stroke-linejoin="round" class="chart-line" data-si="'+si+'"/>'+dots;}).join('');

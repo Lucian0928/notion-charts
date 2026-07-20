@@ -119,8 +119,19 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   if (data.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
+  const ys = data.map((d) => Number(d.y));
+  const maxY = Math.max(...ys);
+  const yFloor = resolveMinY(ys, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
+
   // Decide X rotation before setting padding
-  const lp = 56, rp = 12, F = 8.5;
+  const rp = 12, F = 8.5;
+  // Left padding must fit the widest tick label; a fixed lp clips labels like "-260k"
+  // against the viewBox edge, since they are drawn right-anchored at x=-6.
+  const maxTickLen = Math.max(...yTicks.map((v) => (Number.isInteger(v) ? String(v) : fmtTick(v)).length));
+  const lp = Math.max(56, Math.ceil(maxTickLen * 8.5 * 0.6) + 12);
   const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
   const approxIW = W - lp - rp;
@@ -132,13 +143,6 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   const pad = { top: 14, right: rp, bottom: rotateX ? Math.ceil(maxLabelLen * xF * 0.65 * 0.707) + 8 : F + 14, left: lp };
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
-
-  const ys = data.map((d) => Number(d.y));
-  const maxY = Math.max(...ys);
-  const yFloor = resolveMinY(ys, startingPoint);
-  const yTicks = smartTicksFrom(yFloor, maxY);
-  const yCeil = yTicks[yTicks.length - 1] || 1;
-  const ySpan = yCeil - yFloor || 1;
 
   const sx = (i: number) => (i / (data.length - 1)) * iW;
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
@@ -162,6 +166,13 @@ function renderLineChart(rawData: { x: any; y: any }[], color: string, startingP
   for (let k = 0; k < effectiveCount; k++) indices.add(Math.min(k * step, data.length - 1));
   indices.add(data.length - 1);
   const sortedIndices = [...indices].sort((a, b) => a - b);
+  // step is floored, so the forced final index can land a few px from the last
+  // stepped one and print on top of it — drop whatever it collides with.
+  const minGapX = rotateX ? maxLabelLen * xF * 0.6 * 0.707 + 6 : maxLabelLen * F * 0.6 + 8;
+  while (sortedIndices.length > 1 &&
+         sx(sortedIndices[sortedIndices.length - 1]) - sx(sortedIndices[sortedIndices.length - 2]) < minGapX) {
+    sortedIndices.splice(sortedIndices.length - 2, 1);
+  }
 
   const xGridLines = sortedIndices.map((i) =>
     `<line x1="${sx(i).toFixed(1)}" y1="0" x2="${sx(i).toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`
@@ -386,7 +397,17 @@ function renderMultiSeriesLineChart(
   if (data.length === 0)
     return `<text style="fill:var(--label)" x="50%" y="50%" text-anchor="middle" font-size="13">No data</text>`;
 
-  const lp = 56, rp = 12, F = 8.5;
+  const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
+  const maxY = Math.max(...allY, 0);
+  const yFloor = resolveMinY(allY, startingPoint);
+  const yTicks = smartTicksFrom(yFloor, maxY);
+  const yCeil = yTicks[yTicks.length - 1] || 1;
+  const ySpan = yCeil - yFloor || 1;
+
+  const rp = 12, F = 8.5;
+  // Left padding must fit the widest tick label — see renderLineChart.
+  const maxTickLen = Math.max(...yTicks.map((v) => fmtTick(v).length));
+  const lp = Math.max(56, Math.ceil(maxTickLen * 8.5 * 0.6) + 12);
   const xLabels = data.map((d) => formatDateLabel(String(d.x)));
   const maxLabelLen = Math.max(...xLabels.map((l) => l.length));
   const approxIW = W - lp - rp;
@@ -398,13 +419,6 @@ function renderMultiSeriesLineChart(
   const iW = W - pad.left - pad.right;
   const iH = H - pad.top - pad.bottom;
 
-  const allY = data.flatMap((d) => yFields.map((yf) => Number(d[yf]) || 0));
-  const maxY = Math.max(...allY, 0);
-  const yFloor = resolveMinY(allY, startingPoint);
-  const yTicks = smartTicksFrom(yFloor, maxY);
-  const yCeil = yTicks[yTicks.length - 1] || 1;
-  const ySpan = yCeil - yFloor || 1;
-
   const sx = (i: number) => (data.length > 1 ? i / (data.length - 1) : 0.5) * iW;
   const sy = (v: number) => iH - ((v - yFloor) / ySpan) * iH;
 
@@ -415,6 +429,12 @@ function renderMultiSeriesLineChart(
   for (let k = 0; k < effectiveCount; k++) indices.add(Math.min(k * step, data.length - 1));
   indices.add(data.length - 1);
   const sortedIndices = [...indices].sort((a, b) => a - b);
+  // Drop labels the forced final index would print on top of — see renderLineChart.
+  const minGapX = rotateX ? maxLabelLen * xF * 0.6 * 0.707 + 6 : maxLabelLen * F * 0.6 + 8;
+  while (sortedIndices.length > 1 &&
+         sx(sortedIndices[sortedIndices.length - 1]) - sx(sortedIndices[sortedIndices.length - 2]) < minGapX) {
+    sortedIndices.splice(sortedIndices.length - 2, 1);
+  }
 
   const xGridLines = sortedIndices.map((i) =>
     `<line x1="${sx(i).toFixed(1)}" y1="0" x2="${sx(i).toFixed(1)}" y2="${iH}" style="stroke:var(--grid)" stroke-width="1"/>`
