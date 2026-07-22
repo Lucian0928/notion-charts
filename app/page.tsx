@@ -321,7 +321,7 @@ export default function DashboardPage() {
             const wasCopied = copied === config.id;
 
             return (
-              <div key={config.id} className="glass" style={{ padding: 0, overflow: "visible", display: "flex", flexDirection: "column" }}>
+              <div key={config.id} className="glass" style={{ padding: 0, overflow: "visible", display: "flex", flexDirection: "column", position: "relative", zIndex: isMenuOpen ? 50 : "auto" }}>
 
                 {/* Card header */}
                 <div style={{ padding: "13px 14px 11px", display: "flex", alignItems: "center", gap: 9, position: "relative" }}>
