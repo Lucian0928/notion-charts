@@ -1,4 +1,5 @@
 import type { ChartType } from "./types";
+import { escapeHtml, escapeRows, safeColor, safeColors, safePrefix } from "./sanitize";
 
 const ANIM_CSS = `<style>
 .chart-bar{transform-box:fill-box;transform-origin:50% 100%;animation:chartBarGrow 0.45s cubic-bezier(0.22,1,0.36,1) both}
@@ -891,14 +892,22 @@ export const DEFAULT_MULTI_COLORS = [
 ];
 
 export function renderSvgChart(
-  rawData: any[],
-  color: string,
+  rawDataIn: any[],
+  colorIn: string,
   chartType: ChartType = "line",
-  colors?: string[],
-  yFields?: string[],
+  colorsIn?: string[],
+  yFieldsIn?: string[],
   startingPoint?: number | "auto",
-  prefix = "",
+  prefixIn = "",
 ): string {
+  // The result is injected with dangerouslySetInnerHTML, and every label, field
+  // name, color and the prefix is concatenated into it as raw text. Clean them
+  // once, up front. Row keys are field names, so yFields is escaped to match.
+  const rawData = escapeRows(rawDataIn);
+  const color = safeColor(colorIn);
+  const colors = colorsIn && colorsIn.length > 0 ? safeColors(colorsIn) : undefined;
+  const yFields = yFieldsIn?.map(escapeHtml);
+  const prefix = safePrefix(prefixIn);
   const resolvedColors = colors && colors.length > 0 ? colors : [color];
   if (yFields && yFields.length > 1) {
     const multi = rawData as Record<string, any>[];
