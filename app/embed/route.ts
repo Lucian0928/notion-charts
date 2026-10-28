@@ -3,6 +3,17 @@ export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
 import { kv } from "@vercel/kv";
 import { fetchChartData, fetchChartDataMulti, applyAggregation, fetchFieldFormat } from "@/lib/notionData";
+import {
+  CHART_TYPES,
+  COLOR_MODES,
+  DEFAULT_COLOR,
+  escapeHtml,
+  escapeRows,
+  safeColor,
+  safeColors,
+  safePrefix,
+} from "@/lib/sanitize";
+import type { ChartType } from "@/lib/types";
 
 const CSS = `
   :root { --bg: #191919; --grid: rgba(255,255,255,0.08); --label: #9ca3af; }
@@ -805,41 +816,41 @@ const CONTROLS_HTML = `
 `;
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
-  const id      = searchParams.get("id")         || "";
-  const isDebug = searchParams.get("debug") === "1";
+  // The embed is public, so it renders only a chart the dashboard saved under
+  // an id. It does not accept databaseId/xField/yField/color in the query
+  // string: those would let anyone chart any database the server token can read.
+  const id = req.nextUrl.searchParams.get("id") || "";
 
-  let databaseId = searchParams.get("databaseId") || "";
-  let xField     = searchParams.get("xField")     || "";
-  let yField     = searchParams.get("yField")     || "";
+  let databaseId = "";
+  let xField     = "";
+  let yField     = "";
   let yFields: string[] = [];
   let yAggregations: string[] = [];
-  let color      = searchParams.get("color")      || "#6366f1";
-  let chartType: "line" | "bar" | "pie" | "doughnut" = "line";
-  let colorMode: "single" | "multi"     = "single";
+  let color      = DEFAULT_COLOR;
+  let chartType: ChartType = "line";
+  let colorMode: (typeof COLOR_MODES)[number] = "single";
   let colors: string[] = [];
   let yPrefix    = "";
-  let kvStatus   = "skipped";
 
   if (id) {
     try {
       const charts = (await kv.get<any[]>("nc_charts")) || [];
       const chart  = charts.find((c: any) => c.id === id);
       if (chart) {
-        kvStatus = "ok";
-        if (chart.databaseId) databaseId = chart.databaseId;
-        if (chart.xField)     xField     = chart.xField;
-        if (chart.yField)     yField     = chart.yField;
-        if (chart.yFields?.length) yFields = chart.yFields;
-        if (chart.yAggregations?.length) yAggregations = chart.yAggregations;
-        if (chart.color)      color      = chart.color;
-        if (chart.chartType)  chartType  = chart.chartType;
-        if (chart.colorMode)  colorMode  = chart.colorMode;
-        if (chart.colors && chart.colors.length > 0) colors = chart.colors;
-        if (chart.yPrefix)    yPrefix    = chart.yPrefix;
-      } else { kvStatus = "not-found"; }
-    } catch (e: any) {
-      kvStatus = "error: " + e.message;
+        if (chart.databaseId) databaseId = String(chart.databaseId);
+        if (chart.xField)     xField     = String(chart.xField);
+        if (chart.yField)     yField     = String(chart.yField);
+        if (Array.isArray(chart.yFields) && chart.yFields.length) yFields = chart.yFields.map(String);
+        if (Array.isArray(chart.yAggregations) && chart.yAggregations.length) yAggregations = chart.yAggregations.map(String);
+        if (chart.color)      color      = safeColor(chart.color);
+        if (CHART_TYPES.includes(chart.chartType)) chartType = chart.chartType;
+        if (COLOR_MODES.includes(chart.colorMode)) colorMode = chart.colorMode;
+        const cs = safeColors(chart.colors);
+        if (cs.length > 0)    colors     = cs;
+        if (chart.yPrefix)    yPrefix    = safePrefix(chart.yPrefix);
+      }
+    } catch {
+      // KV unavailable: falls through to the "Missing config" error below.
     }
   }
 
@@ -868,30 +879,25 @@ export async function GET(req: NextRequest) {
       const fmtToken = process.env.NOTION_CHARTS_TOKEN;
       if (fmtToken) {
         const fmt = await fetchFieldFormat(fmtToken, databaseId, resolvedYFields[0]);
-        yPrefix = fmt.prefix;
+        yPrefix = safePrefix(fmt.prefix);
       }
     } catch {}
   }
 
   const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, "<\\/");
 
-  const DATA_SCRIPT = `window.__nc_d=${safe(data)};window.__nc_c=${safe({
+  // The inline script renders labels, field names and the error text through
+  // innerHTML, so escape them here, once. Row keys are field names, so the
+  // field-name list is escaped the same way to keep the lookups consistent.
+  const DATA_SCRIPT = `window.__nc_d=${safe(escapeRows(data))};window.__nc_c=${safe({
     chartType,
     colorMode,
     color,
     colors,
-    yFields: resolvedYFields,
+    yFields: resolvedYFields.map(escapeHtml),
     yPrefix,
-    error: errorMsg || null,
+    error: errorMsg ? escapeHtml(errorMsg) : null,
   })};`;
-
-  const debugPanel = isDebug ? `
-<div style="position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.92);color:#0f0;font-family:monospace;font-size:12px;padding:8px 12px;line-height:1.8;z-index:99999;">
-  <b>id:</b> ${id || "(none)"} &nbsp;|&nbsp;
-  <b>kv:</b> ${kvStatus} &nbsp;|&nbsp;
-  <b>color:</b> ${color} &nbsp;|&nbsp;
-  <b>db:</b> ${databaseId ? databaseId.slice(0, 8) + "…" : "(none)"}
-</div>` : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -905,7 +911,6 @@ export async function GET(req: NextRequest) {
 <body>
 <div class="wrap" id="nc-wrap">
 ${CONTROLS_HTML}
-${debugPanel}
 </div>
 <script>${DATA_SCRIPT}</script>
 <script>${TOGGLE_SCRIPT}</script>
